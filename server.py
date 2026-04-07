@@ -152,30 +152,31 @@ def build_agent_prompt(episode: EpisodeState) -> str:
                  for h in episode.history[-4:]]
         history_txt = "\n".join(lines)
 
-    return f"""You are a GIS flood analysis agent for the {region['name']} ({region['state']}).
-
-TASK: {task.description}
-
-AVAILABLE DATA: {', '.join(task.available_data)}
-
-CONTEXT:
-- Region: {region['name']}, {region['state']}
-- River: {region['river']}
-- SAR threshold: {region['sar_threshold_db']} dB
-- Model accuracy: {region['accuracy_pct']}%
-- Flood areas km2: 2022={region['flood_areas'][2022]}, 2023={region['flood_areas'][2023]}, 2024={region['flood_areas'][2024]}
-- Peak year: {region['peak_year']}
-- Chronic area: {region['chronic_km2']} km2
-- Population at risk: {region['chronic_pop']:,}
-- High-risk zones: {', '.join(region['high_risk_zones'])}
-- Risk zones km2: high={region['risk_zones_km2']['high']}, moderate={region['risk_zones_km2']['moderate']}, low={region['risk_zones_km2']['low']}
-
-STEP {episode.step + 1} of {task.max_steps}
-PREVIOUS STEPS:
-{history_txt if history_txt else 'None yet'}
-
-Provide a specific, data-backed analysis. Include exact numbers. Be concise but precise.
-Cite specific districts, zone names, and km2 figures from the context above."""
+    fa = region['flood_areas']
+    fa_str = ", ".join(f"{yr}={fa.get(yr, fa.get(str(yr), 0))}" for yr in [2022, 2023, 2024])
+    rz = region['risk_zones_km2']
+    lines_out = [
+        f"You are a GIS flood analysis agent for the {region['name']} ({region['state']}).",
+        f"",
+        f"TASK: {task.description}",
+        f"",
+        f"CONTEXT:",
+        f"- River: {region['river']}",
+        f"- SAR threshold: {region['sar_threshold_db']} dB",
+        f"- Model accuracy: {region['accuracy_pct']}%",
+        f"- Flood areas km2: {fa_str}",
+        f"- Peak year: {region['peak_year']}",
+        f"- Chronic area: {region['chronic_km2']} km2",
+        f"- Population at risk: {region['chronic_pop']:,}",
+        f"- High-risk zones: {', '.join(region['high_risk_zones'])}",
+        f"- Risk zones km2: high={rz['high']}, moderate={rz['moderate']}, low={rz['low']}",
+        f"",
+        f"STEP {episode.step + 1} of {task.max_steps}",
+        f"PREVIOUS STEPS: {history_txt if history_txt else 'None yet'}",
+        f"",
+        f"Provide specific, data-backed analysis with exact numbers, district names, and km2 figures.",
+    ]
+    return "\n".join(lines_out)
 
 
 # ──────────────────────────────────────────────
@@ -276,50 +277,58 @@ async def state():
 async def agent_step():
     """Run ONE real LLM agent step against the current episode."""
     global _current_episode
-    if _current_episode is None:
-        raise HTTPException(400, "No active episode. Call /reset first.")
-    if _current_episode.done:
-        raise HTTPException(400, "Episode is done.")
-
-    client = get_llm_client()
-    if not client:
-        raise HTTPException(503, "No GROQ_API_KEY configured in Space secrets.")
-
-    ep = _current_episode
-    prompt = build_agent_prompt(ep)
-
     try:
-        completion = client.chat.completions.create(
-            model=AGENT_MODEL,
-            messages=[
-                {"role": "system", "content": "You are a precise GIS flood analysis agent. Always include specific numbers, district names, and km2 figures in your responses."},
-                {"role": "user", "content": prompt}
-            ],
-            max_tokens=400,
-            temperature=0.3,
-        )
-        message = (completion.choices[0].message.content or "").strip()
-    except Exception as exc:
-        raise HTTPException(502, f"Groq call failed: {type(exc).__name__}: {str(exc)[:200]}")
+        if _current_episode is None:
+            raise HTTPException(400, "No active episode. Call /reset first.")
+        if _current_episode.done:
+            raise HTTPException(400, "Episode is done.")
 
-    # Now step the environment with the LLM response
-    ep.step += 1
-    result = ep.task.step(message, ep.step)
-    reward = float(result["reward"])
-    done   = bool(result["done"]) or ep.step >= ep.task.max_steps
-    ep.total_reward += reward
-    ep.done = done
-    ep.history.append({"step": ep.step, "action": message[:200], "reward": reward, "done": done})
+        client = get_llm_client()
+        if not client:
+            raise HTTPException(503, "No GROQ_API_KEY in secrets. Add GROQ_API_KEY to HF Space secrets.")
 
-    return {
-        "step":          ep.step,
-        "agent_message": message,
-        "reward":        reward,
-        "done":          done,
-        "result":        result.get("result", ""),
-        "total_reward":  ep.total_reward,
-        "model":         AGENT_MODEL,
-    }
+        ep = _current_episode
+
+        try:
+            prompt = build_agent_prompt(ep)
+        except Exception as pe:
+            raise HTTPException(500, f"Prompt build failed: {type(pe).__name__}: {str(pe)[:200]}")
+
+        try:
+            completion = client.chat.completions.create(
+                model=AGENT_MODEL,
+                messages=[
+                    {"role": "system", "content": "You are a precise GIS flood analysis agent. Always include exact numbers, district names, and km2 figures."},
+                    {"role": "user", "content": prompt}
+                ],
+                max_tokens=400,
+                temperature=0.3,
+            )
+            message = (completion.choices[0].message.content or "").strip()
+        except Exception as exc:
+            raise HTTPException(502, f"Groq API error: {type(exc).__name__}: {str(exc)[:300]}")
+
+        ep.step += 1
+        result = ep.task.step(message, ep.step)
+        reward = float(result.get("reward", 0))
+        done   = bool(result.get("done", False)) or ep.step >= ep.task.max_steps
+        ep.total_reward += reward
+        ep.done = done
+        ep.history.append({"step": ep.step, "action": message[:200], "reward": reward, "done": done})
+
+        return {
+            "step":          ep.step,
+            "agent_message": message,
+            "reward":        reward,
+            "done":          done,
+            "result":        result.get("result", ""),
+            "total_reward":  ep.total_reward,
+            "model":         AGENT_MODEL,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, f"Unexpected error: {type(e).__name__}: {str(e)[:300]}")
 
 
 # ──────────────────────────────────────────────
