@@ -1,1077 +1,686 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Chronostasis — Flood Intelligence</title>
-    <link
-      href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap"
-      rel="stylesheet"
-    />
-    <style>
-      :root {
-        --bg: #060a0f;
-        --surface: #0c1219;
-        --surface2: #111920;
-        --border: #1a2a38;
-        --accent: #00d4ff;
-        --accent2: #0066ff;
-        --warn: #ff6b2b;
-        --success: #00ff88;
-        --text: #e8f4f8;
-        --muted: #4a7a9b;
-        --mono: "Space Mono", monospace;
-        --sans: "Syne", sans-serif;
-      }
-      * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-      }
-      body {
-        background: var(--bg);
-        color: var(--text);
-        font-family: var(--sans);
-        min-height: 100vh;
-        overflow-x: hidden;
-      }
-      body::before {
-        content: "";
-        position: fixed;
-        inset: 0;
-        pointer-events: none;
-        z-index: 0;
-        background-image:
-          linear-gradient(rgba(0, 212, 255, 0.03) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(0, 212, 255, 0.03) 1px, transparent 1px);
-        background-size: 40px 40px;
-      }
-      .wrap {
-        position: relative;
-        z-index: 1;
-        max-width: 1200px;
-        margin: 0 auto;
-        padding: 0 24px;
-      }
-      header {
-        padding: 32px 0 24px;
-        border-bottom: 1px solid var(--border);
-        margin-bottom: 40px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-      }
-      .logo {
-        display: flex;
-        align-items: baseline;
-        gap: 12px;
-      }
-      .logo-name {
-        font-size: 28px;
-        font-weight: 800;
-        letter-spacing: -1px;
-        background: linear-gradient(135deg, var(--accent), var(--accent2));
-        -webkit-background-clip: text;
-        background-clip: text;
-        -webkit-text-fill-color: transparent;
-      }
-      .logo-tag {
-        font-family: var(--mono);
-        font-size: 11px;
-        color: var(--muted);
-        letter-spacing: 2px;
-        text-transform: uppercase;
-      }
-      .badge {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        background: var(--surface);
-        border: 1px solid var(--border);
-        padding: 8px 16px;
-        border-radius: 100px;
-        font-family: var(--mono);
-        font-size: 12px;
-        color: var(--muted);
-      }
-      .dot {
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        background: var(--muted);
-      }
-      .dot.live {
-        background: var(--success);
-        animation: pulse 2s ease-in-out infinite;
-      }
-      .dot.err {
-        background: var(--warn);
-      }
-      @keyframes pulse {
-        0%,
-        100% {
-          box-shadow: 0 0 0 0 rgba(0, 255, 136, 0.4);
-        }
-        50% {
-          box-shadow: 0 0 0 6px rgba(0, 255, 136, 0);
-        }
-      }
-      .stats {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 16px;
-        margin-bottom: 40px;
-      }
-      .stat {
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: 12px;
-        padding: 20px;
-        position: relative;
-        overflow: hidden;
-        transition: border-color 0.2s;
-      }
-      .stat:hover {
-        border-color: var(--accent);
-      }
-      .slbl {
-        font-family: var(--mono);
-        font-size: 10px;
-        color: var(--muted);
-        letter-spacing: 2px;
-        text-transform: uppercase;
-        margin-bottom: 10px;
-      }
-      .sval {
-        font-size: 32px;
-        font-weight: 800;
-        letter-spacing: -1px;
-        color: var(--accent);
-        line-height: 1;
-      }
-      .ssub {
-        font-family: var(--mono);
-        font-size: 11px;
-        color: var(--muted);
-        margin-top: 6px;
-      }
-      .main {
-        display: grid;
-        grid-template-columns: 1fr 380px;
-        gap: 24px;
-        margin-bottom: 40px;
-      }
-      .panel {
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: 16px;
-        overflow: hidden;
-      }
-      .ph {
-        padding: 16px 20px;
-        border-bottom: 1px solid var(--border);
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-      }
-      .phtitle {
-        font-family: var(--mono);
-        font-size: 11px;
-        color: var(--muted);
-        letter-spacing: 2px;
-        text-transform: uppercase;
-      }
-      .pb {
-        padding: 20px;
-      }
-      .tabs {
-        display: flex;
-        gap: 8px;
-        margin-bottom: 20px;
-      }
-      .tab {
-        flex: 1;
-        background: var(--surface2);
-        border: 1px solid var(--border);
-        border-radius: 8px;
-        padding: 10px 12px;
-        cursor: pointer;
-        transition: all 0.15s;
-        text-align: center;
-        user-select: none;
-      }
-      .tab:hover {
-        border-color: var(--muted);
-      }
-      .tab.on {
-        background: rgba(0, 212, 255, 0.08);
-        border-color: var(--accent);
-      }
-      .tname {
-        font-size: 13px;
-        font-weight: 600;
-        margin-bottom: 2px;
-      }
-      .tdiff {
-        font-family: var(--mono);
-        font-size: 10px;
-      }
-      .easy {
-        color: var(--success);
-      }
-      .medium {
-        color: #ffcc00;
-      }
-      .hard {
-        color: var(--warn);
-      }
-      .con {
-        background: #050a0e;
-        border-radius: 10px;
-        padding: 16px;
-        height: 250px;
-        overflow-y: auto;
-        font-family: var(--mono);
-        font-size: 12px;
-        line-height: 1.7;
-        margin-bottom: 16px;
-        border: 1px solid var(--border);
-      }
-      .con::-webkit-scrollbar {
-        width: 4px;
-      }
-      .con::-webkit-scrollbar-thumb {
-        background: var(--border);
-        border-radius: 2px;
-      }
-      .cs {
-        color: var(--accent);
-      }
-      .cst {
-        color: #88ccff;
-      }
-      .ce {
-        color: var(--success);
-      }
-      .cw {
-        color: var(--warn);
-      }
-      .cd {
-        color: var(--muted);
-      }
-      .obs {
-        background: #050a0e;
-        border: 1px solid var(--border);
-        border-radius: 8px;
-        padding: 12px;
-        font-family: var(--mono);
-        font-size: 11px;
-        color: #88aacc;
-        line-height: 1.8;
-        margin-top: 10px;
-        max-height: 70px;
-        overflow-y: auto;
-        display: none;
-      }
-      .obs.show {
-        display: block;
-      }
-      .btns {
-        display: flex;
-        gap: 10px;
-        margin-top: 12px;
-      }
-      .btn {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
-        padding: 11px 20px;
-        border-radius: 8px;
-        font-family: var(--mono);
-        font-size: 12px;
-        font-weight: 700;
-        cursor: pointer;
-        border: none;
-        transition: all 0.15s;
-        letter-spacing: 1px;
-      }
-      .btnp {
-        background: var(--accent);
-        color: #000;
-        flex: 1;
-      }
-      .btnp:hover:not(:disabled) {
-        background: #33ddff;
-        transform: translateY(-1px);
-      }
-      .btnp:disabled {
-        opacity: 0.4;
-        cursor: not-allowed;
-      }
-      .btns2 {
-        background: var(--surface2);
-        color: var(--text);
-        border: 1px solid var(--border);
-      }
-      .btns2:hover {
-        border-color: var(--muted);
-      }
-      .spin {
-        width: 14px;
-        height: 14px;
-        border: 2px solid rgba(0, 212, 255, 0.2);
-        border-top-color: var(--accent);
-        border-radius: 50%;
-        animation: spin 0.7s linear infinite;
-        display: none;
-      }
-      .spin.on {
-        display: block;
-      }
-      @keyframes spin {
-        to {
-          transform: rotate(360deg);
-        }
-      }
-      .rh {
-        display: flex;
-        justify-content: space-between;
-        align-items: baseline;
-        margin-bottom: 8px;
-      }
-      .rl {
-        font-family: var(--mono);
-        font-size: 11px;
-        color: var(--muted);
-        letter-spacing: 1px;
-      }
-      .rv {
-        font-family: var(--mono);
-        font-size: 24px;
-        font-weight: 700;
-        color: var(--accent);
-      }
-      .barbg {
-        height: 6px;
-        background: var(--surface2);
-        border-radius: 3px;
-        overflow: hidden;
-        margin-bottom: 16px;
-      }
-      .barfill {
-        height: 100%;
-        background: linear-gradient(90deg, var(--accent2), var(--accent));
-        border-radius: 3px;
-        transition: width 0.6s ease;
-        width: 0%;
-      }
-      .donebox {
-        display: none;
-        text-align: center;
-        padding: 8px;
-        background: rgba(0, 255, 136, 0.08);
-        border: 1px solid rgba(0, 255, 136, 0.3);
-        border-radius: 8px;
-        font-family: var(--mono);
-        font-size: 12px;
-        color: var(--success);
-      }
-      .slist {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        max-height: 260px;
-        overflow-y: auto;
-      }
-      .slist::-webkit-scrollbar {
-        width: 3px;
-      }
-      .slist::-webkit-scrollbar-thumb {
-        background: var(--border);
-      }
-      .sitem {
-        background: var(--surface2);
-        border: 1px solid var(--border);
-        border-radius: 8px;
-        padding: 10px 12px;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        animation: si 0.3s ease;
-      }
-      @keyframes si {
-        from {
-          opacity: 0;
-          transform: translateX(-8px);
-        }
-        to {
-          opacity: 1;
-          transform: translateX(0);
-        }
-      }
-      .snum {
-        font-family: var(--mono);
-        font-size: 10px;
-        color: var(--muted);
-        min-width: 28px;
-      }
-      .sact {
-        flex: 1;
-        font-size: 12px;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-      .srwd {
-        font-family: var(--mono);
-        font-size: 12px;
-        font-weight: 700;
-        min-width: 44px;
-        text-align: right;
-      }
-      .srwd.pos {
-        color: var(--success);
-      }
-      .srwd.zer {
-        color: var(--muted);
-      }
-      .srwd.neg {
-        color: var(--warn);
-      }
-      .sempty {
-        font-family: var(--mono);
-        font-size: 11px;
-        color: var(--muted);
-        text-align: center;
-        padding: 20px 0;
-      }
-      .srcs {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 16px;
-        margin-bottom: 40px;
-      }
-      .src {
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: 10px;
-        padding: 14px 16px;
-        display: flex;
-        align-items: center;
-        gap: 12px;
-      }
-      .sicon {
-        width: 36px;
-        height: 36px;
-        border-radius: 8px;
-        background: rgba(0, 212, 255, 0.08);
-        border: 1px solid rgba(0, 212, 255, 0.2);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 16px;
-        flex-shrink: 0;
-      }
-      .sname {
-        font-size: 13px;
-        font-weight: 600;
-        margin-bottom: 2px;
-      }
-      .sdesc {
-        font-family: var(--mono);
-        font-size: 10px;
-        color: var(--muted);
-      }
-      .pills {
-        display: flex;
-        gap: 8px;
-        flex-wrap: wrap;
-        margin-bottom: 12px;
-      }
-      .pill {
-        background: var(--surface2);
-        border: 1px solid var(--border);
-        border-radius: 100px;
-        padding: 5px 14px;
-        font-family: var(--mono);
-        font-size: 11px;
-        color: var(--muted);
-        cursor: pointer;
-        transition: all 0.15s;
-      }
-      .pill:hover {
-        border-color: var(--accent);
-        color: var(--accent);
-      }
-      .pm {
-        color: var(--accent2);
-        margin-right: 4px;
-      }
-      .apiout {
-        background: #050a0e;
-        border: 1px solid var(--border);
-        border-radius: 8px;
-        padding: 12px;
-        font-family: var(--mono);
-        font-size: 11px;
-        color: #88aacc;
-        line-height: 1.8;
-        white-space: pre-wrap;
-        max-height: 160px;
-        overflow-y: auto;
-      }
-      footer {
-        border-top: 1px solid var(--border);
-        padding: 20px 0;
-        display: flex;
-        justify-content: space-between;
-      }
-      .ft {
-        font-family: var(--mono);
-        font-size: 11px;
-        color: var(--muted);
-      }
-      @media (max-width: 900px) {
-        .main {
-          grid-template-columns: 1fr;
-        }
-        .stats {
-          grid-template-columns: repeat(2, 1fr);
-        }
-        .srcs {
-          grid-template-columns: repeat(2, 1fr);
-        }
-      }
-    </style>
-  </head>
-  <body>
-    <div class="wrap">
-      <header>
-        <div class="logo">
-          <span class="logo-name">CHRONOSTASIS</span>
-          <span class="logo-tag"
-            >OpenEnv &middot; Brahmaputra Flood Intelligence</span
-          >
-        </div>
-        <div class="badge">
-          <div class="dot" id="dot"></div>
-          <span id="stxt">Connecting...</span>
-        </div>
-      </header>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chronostasis — Flood Intelligence</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#060a0f;--s1:#0c1219;--s2:#111920;--bd:#1a2a38;--ac:#00d4ff;--ac2:#0066ff;--warn:#ff6b2b;--ok:#00ff88;--tx:#e8f4f8;--mu:#4a7a9b;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--tx);font-family:'Syne',sans-serif;min-height:100vh;overflow-x:hidden;}
+body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;background-image:linear-gradient(rgba(0,212,255,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,212,255,0.03) 1px,transparent 1px);background-size:40px 40px;}
+.w{position:relative;z-index:1;max-width:1260px;margin:0 auto;padding:0 24px;}
+/* HEADER */
+header{padding:28px 0 20px;border-bottom:1px solid var(--bd);margin-bottom:32px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;}
+.logo{display:flex;align-items:baseline;gap:12px;}
+.ln{font-size:26px;font-weight:800;letter-spacing:-1px;background:linear-gradient(135deg,var(--ac),var(--ac2));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+.lt{font-family:'Space Mono',monospace;font-size:10px;color:var(--mu);letter-spacing:2px;text-transform:uppercase;}
+.hbadge{display:flex;align-items:center;gap:8px;background:var(--s1);border:1px solid var(--bd);padding:7px 14px;border-radius:100px;font-family:'Space Mono',monospace;font-size:11px;color:var(--mu);}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--mu);flex-shrink:0;}
+.dot.live{background:var(--ok);animation:pulse 2s infinite;}
+.dot.err{background:var(--warn);}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(0,255,136,0.4);}50%{box-shadow:0 0 0 5px rgba(0,255,136,0);}}
 
-      <div class="stats">
-        <div class="stat">
-          <div class="slbl">Model Accuracy</div>
-          <div class="sval">
-            92.39<span style="font-size: 16px; color: var(--muted)">%</span>
-          </div>
-          <div class="ssub">SAR vs risk model</div>
-        </div>
-        <div class="stat">
-          <div class="slbl">Peak Flood Year</div>
-          <div class="sval">2022</div>
-          <div class="ssub">4,812 km&sup2; inundated</div>
-        </div>
-        <div class="stat">
-          <div class="slbl">Chronic Zones</div>
-          <div class="sval">
-            1,247<span style="font-size: 16px; color: var(--muted)"
-              >km&sup2;</span
-            >
-          </div>
-          <div class="ssub">Flooded all 3 years</div>
-        </div>
-        <div class="stat">
-          <div class="slbl">Tasks Available</div>
-          <div class="sval">3</div>
-          <div class="ssub">Easy / Medium / Hard</div>
-        </div>
+/* REGION SELECTOR */
+.rsec{margin-bottom:28px;}
+.rsec-title{font-family:'Space Mono',monospace;font-size:10px;color:var(--mu);letter-spacing:2px;text-transform:uppercase;margin-bottom:12px;}
+.rlist{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;}
+.rcard{background:var(--s1);border:1px solid var(--bd);border-radius:10px;padding:12px 14px;cursor:pointer;transition:all .15s;position:relative;overflow:hidden;}
+.rcard::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--ac),var(--ac2));opacity:0;transition:opacity .15s;}
+.rcard:hover{border-color:var(--mu);}
+.rcard.on{border-color:var(--ac);background:rgba(0,212,255,0.06);}
+.rcard.on::before{opacity:1;}
+.riv{font-family:'Space Mono',monospace;font-size:9px;color:var(--ac);letter-spacing:1px;margin-bottom:4px;}
+.rname{font-size:13px;font-weight:600;margin-bottom:2px;line-height:1.3;}
+.rst{font-family:'Space Mono',monospace;font-size:10px;color:var(--mu);}
+.racc{font-family:'Space Mono',monospace;font-size:10px;color:var(--ok);margin-top:4px;}
+
+/* STATS */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:28px;}
+.stat{background:var(--s1);border:1px solid var(--bd);border-radius:10px;padding:16px 18px;transition:border-color .2s;}
+.stat:hover{border-color:var(--ac);}
+.slbl{font-family:'Space Mono',monospace;font-size:9px;color:var(--mu);letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;}
+.sval{font-size:28px;font-weight:800;letter-spacing:-1px;color:var(--ac);line-height:1;}
+.ssub{font-family:'Space Mono',monospace;font-size:10px;color:var(--mu);margin-top:5px;}
+
+/* MAIN GRID */
+.main{display:grid;grid-template-columns:1fr 360px;gap:20px;margin-bottom:28px;}
+.panel{background:var(--s1);border:1px solid var(--bd);border-radius:14px;overflow:hidden;}
+.ph{padding:14px 18px;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.pht{font-family:'Space Mono',monospace;font-size:10px;color:var(--mu);letter-spacing:2px;text-transform:uppercase;}
+.pb{padding:18px;}
+
+/* MODE TOGGLE */
+.mode-row{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
+.mode-lbl{font-family:'Space Mono',monospace;font-size:10px;color:var(--mu);letter-spacing:1px;}
+.toggle{display:flex;background:var(--s2);border:1px solid var(--bd);border-radius:6px;overflow:hidden;}
+.topt{padding:5px 12px;font-family:'Space Mono',monospace;font-size:10px;color:var(--mu);cursor:pointer;transition:all .15s;user-select:none;}
+.topt.on{background:rgba(0,212,255,0.12);color:var(--ac);}
+.topt:hover:not(.on){color:var(--tx);}
+
+/* TASK TABS */
+.tabs{display:flex;gap:8px;margin-bottom:14px;}
+.tab{flex:1;background:var(--s2);border:1px solid var(--bd);border-radius:7px;padding:9px 10px;cursor:pointer;transition:all .15s;text-align:center;user-select:none;}
+.tab:hover{border-color:var(--mu);}
+.tab.on{background:rgba(0,212,255,0.08);border-color:var(--ac);}
+.tname{font-size:12px;font-weight:600;margin-bottom:2px;}
+.tdiff{font-family:'Space Mono',monospace;font-size:9px;}
+.easy{color:var(--ok);}.medium{color:#ffcc00;}.hard{color:var(--warn);}
+
+/* CONSOLE */
+.con{background:#050a0e;border-radius:8px;padding:14px;height:220px;overflow-y:auto;font-family:'Space Mono',monospace;font-size:11px;line-height:1.7;margin-bottom:12px;border:1px solid var(--bd);}
+.con::-webkit-scrollbar{width:3px;}.con::-webkit-scrollbar-thumb{background:var(--bd);}
+.cs{color:var(--ac);}.cst{color:#88ccff;}.ce{color:var(--ok);}.cw{color:var(--warn);}.cd{color:var(--mu);}.ca{color:#c8e8ff;}
+
+/* AGENT THINKING */
+.thinking{display:none;background:rgba(0,212,255,0.05);border:1px solid rgba(0,212,255,0.2);border-radius:8px;padding:12px;margin-bottom:12px;font-family:'Space Mono',monospace;font-size:11px;color:var(--ac);}
+.thinking.show{display:block;}
+.think-title{font-size:9px;letter-spacing:2px;margin-bottom:6px;color:var(--mu);}
+.think-txt{color:#88ccff;line-height:1.7;}
+.think-dots{display:inline-block;animation:dots 1.2s infinite;}
+@keyframes dots{0%{content:'.';}33%{content:'..';}66%{content:'...';}100%{content:'';}}
+
+/* OBS */
+.obs{background:#050a0e;border:1px solid var(--bd);border-radius:7px;padding:10px;font-family:'Space Mono',monospace;font-size:10px;color:#88aacc;line-height:1.8;margin-bottom:12px;max-height:60px;overflow-y:auto;display:none;}
+.obs.show{display:block;}
+
+/* BUTTONS */
+.btns{display:flex;gap:8px;}
+.btn{display:flex;align-items:center;justify-content:center;gap:7px;padding:10px 18px;border-radius:7px;font-family:'Space Mono',monospace;font-size:11px;font-weight:700;cursor:pointer;border:none;transition:all .15s;letter-spacing:1px;}
+.bp{background:var(--ac);color:#000;flex:1;}
+.bp:hover:not(:disabled){background:#33ddff;transform:translateY(-1px);}
+.bp:disabled{opacity:.4;cursor:not-allowed;}
+.bp.agent{background:linear-gradient(135deg,#7c3aed,#2563eb);}
+.bp.agent:hover:not(:disabled){background:linear-gradient(135deg,#8b5cf6,#3b82f6);transform:translateY(-1px);}
+.bs{background:var(--s2);color:var(--tx);border:1px solid var(--bd);}
+.bs:hover{border-color:var(--mu);}
+
+/* SPINNER */
+.spin{width:13px;height:13px;border:2px solid rgba(0,212,255,0.2);border-top-color:var(--ac);border-radius:50%;animation:spin .7s linear infinite;display:none;flex-shrink:0;}
+.spin.on{display:block;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* SCORE */
+.rh{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;}
+.rl{font-family:'Space Mono',monospace;font-size:10px;color:var(--mu);letter-spacing:1px;}
+.rv{font-family:'Space Mono',monospace;font-size:22px;font-weight:700;color:var(--ac);}
+.bg{height:5px;background:var(--s2);border-radius:3px;overflow:hidden;margin-bottom:14px;}
+.bf{height:100%;background:linear-gradient(90deg,var(--ac2),var(--ac));border-radius:3px;transition:width .5s ease;width:0%;}
+.dbox{display:none;text-align:center;padding:7px;background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.3);border-radius:7px;font-family:'Space Mono',monospace;font-size:11px;color:var(--ok);}
+.slist{display:flex;flex-direction:column;gap:7px;max-height:220px;overflow-y:auto;}
+.slist::-webkit-scrollbar{width:3px;}.slist::-webkit-scrollbar-thumb{background:var(--bd);}
+.si{background:var(--s2);border:1px solid var(--bd);border-radius:7px;padding:9px 11px;display:flex;align-items:center;gap:9px;animation:si .25s ease;}
+@keyframes si{from{opacity:0;transform:translateX(-6px)}to{opacity:1;transform:translateX(0)}}
+.snum{font-family:'Space Mono',monospace;font-size:9px;color:var(--mu);min-width:24px;}
+.sact{flex:1;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.sr{font-family:'Space Mono',monospace;font-size:11px;font-weight:700;min-width:40px;text-align:right;}
+.sr.pos{color:var(--ok);}.sr.zer{color:var(--mu);}.sr.neg{color:var(--warn);}
+.sempty{font-family:'Space Mono',monospace;font-size:10px;color:var(--mu);text-align:center;padding:16px 0;}
+
+/* BOTTOM */
+.bottom{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:28px;}
+.srcs{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;}
+.src{background:var(--s1);border:1px solid var(--bd);border-radius:8px;padding:12px;display:flex;align-items:center;gap:10px;}
+.sico{width:32px;height:32px;border-radius:7px;background:rgba(0,212,255,0.08);border:1px solid rgba(0,212,255,0.15);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;}
+.snm{font-size:12px;font-weight:600;margin-bottom:2px;}
+.sdc{font-family:'Space Mono',monospace;font-size:9px;color:var(--mu);}
+
+/* API */
+.pills{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:10px;}
+.pill{background:var(--s2);border:1px solid var(--bd);border-radius:100px;padding:4px 12px;font-family:'Space Mono',monospace;font-size:10px;color:var(--mu);cursor:pointer;transition:all .15s;}
+.pill:hover{border-color:var(--ac);color:var(--ac);}
+.pm{color:var(--ac2);margin-right:3px;}
+.aout{background:#050a0e;border:1px solid var(--bd);border-radius:7px;padding:10px;font-family:'Space Mono',monospace;font-size:10px;color:#88aacc;line-height:1.8;white-space:pre-wrap;max-height:140px;overflow-y:auto;}
+
+footer{border-top:1px solid var(--bd);padding:18px 0;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;}
+.ft{font-family:'Space Mono',monospace;font-size:10px;color:var(--mu);}
+@media(max-width:960px){.main{grid-template-columns:1fr;}.stats{grid-template-columns:repeat(2,1fr);}.rlist{grid-template-columns:repeat(2,1fr);}.bottom{grid-template-columns:1fr;}}
+@media(max-width:600px){.rlist{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+<div class="w">
+
+<header>
+  <div class="logo">
+    <span class="ln">CHRONOSTASIS</span>
+    <span class="lt">OpenEnv v2 &middot; India Flood Intelligence</span>
+  </div>
+  <div class="hbadge">
+    <div class="dot" id="dot"></div>
+    <span id="stxt">Connecting...</span>
+    <span id="modelTag" style="color:var(--ac);margin-left:4px;display:none;"></span>
+  </div>
+</header>
+
+<!-- REGION SELECTOR -->
+<div class="rsec">
+  <div class="rsec-title">Select River Basin</div>
+  <div class="rlist" id="rlist"></div>
+</div>
+
+<!-- DYNAMIC STATS -->
+<div class="stats">
+  <div class="stat"><div class="slbl">Model Accuracy</div><div class="sval" id="stAcc">--</div><div class="ssub">SAR vs risk model</div></div>
+  <div class="stat"><div class="slbl">Peak Flood Year</div><div class="sval" id="stPeak">--</div><div class="ssub" id="stPeakSub">--</div></div>
+  <div class="stat"><div class="slbl">Chronic Zones</div><div class="sval" id="stChron">--</div><div class="ssub">Flooded all 3 years</div></div>
+  <div class="stat"><div class="slbl">Population at Risk</div><div class="sval" id="stPop">--</div><div class="ssub" id="stPopSub">estimated annually</div></div>
+</div>
+
+<!-- MAIN GRID -->
+<div class="main">
+  <div class="panel">
+    <div class="ph">
+      <span class="pht">Agent Console</span>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div class="spin" id="spin"></div>
+        <span id="agentMode" style="font-family:'Space Mono',monospace;font-size:9px;color:var(--mu);letter-spacing:1px;"></span>
       </div>
-
-      <div class="main">
-        <div class="panel">
-          <div class="ph">
-            <span class="phtitle">Agent Console</span>
-            <div class="spin" id="spin"></div>
-          </div>
-          <div class="pb">
-            <div class="tabs">
-              <div
-                class="tab on"
-                id="t0"
-                onclick="pickTask('flood_year_comparison', 0)"
-              >
-                <div class="tname">Year Comparison</div>
-                <div class="tdiff easy">EASY</div>
-              </div>
-              <div
-                class="tab"
-                id="t1"
-                onclick="pickTask('district_inundation_report', 1)"
-              >
-                <div class="tname">District Report</div>
-                <div class="tdiff medium">MEDIUM</div>
-              </div>
-              <div
-                class="tab"
-                id="t2"
-                onclick="pickTask('flood_risk_forecast', 2)"
-              >
-                <div class="tname">Risk Forecast</div>
-                <div class="tdiff hard">HARD</div>
-              </div>
-            </div>
-            <div class="con" id="con">
-              <div class="cd">// Chronostasis OpenEnv ready</div>
-              <div class="cd">// Select a task and click RUN EPISODE</div>
-            </div>
-            <div class="obs" id="obs"></div>
-            <div class="btns">
-              <button class="btn btns2" onclick="doReset()">RESET</button>
-              <button class="btn btnp" id="runBtn" onclick="doRun()">
-                &#9654; RUN EPISODE
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div style="display: flex; flex-direction: column; gap: 16px">
-          <div class="panel">
-            <div class="ph">
-              <span class="phtitle">Episode Score</span
-              ><span class="phtitle" id="sctr">0 / 0 steps</span>
-            </div>
-            <div class="pb">
-              <div class="rh">
-                <span class="rl">TOTAL REWARD</span
-                ><span class="rv" id="rtot">0.000</span>
-              </div>
-              <div class="barbg"><div class="barfill" id="rbar"></div></div>
-              <div class="rh">
-                <span class="rl">LAST STEP</span
-                ><span
-                  style="
-                    font-family: var(--mono);
-                    font-size: 16px;
-                    color: #88ccff;
-                  "
-                  id="rlast"
-                  >&#8212;</span
-                >
-              </div>
-              <div class="donebox" id="dbox">&#10003; EPISODE COMPLETE</div>
-            </div>
-          </div>
-          <div class="panel" style="flex: 1">
-            <div class="ph">
-              <span class="phtitle">Step History</span
-              ><span
-                style="
-                  font-family: var(--mono);
-                  font-size: 10px;
-                  color: var(--success);
-                  display: none;
-                "
-                id="okbdg"
-                >SUCCESS</span
-              >
-            </div>
-            <div class="pb">
-              <div class="slist" id="slist">
-                <div class="sempty">No steps yet</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="srcs">
-        <div class="src">
-          <div class="sicon">&#128225;</div>
-          <div>
-            <div class="sname">Sentinel-1 SAR</div>
-            <div class="sdesc">VV/VH &middot; 2022-2024 monsoon</div>
-          </div>
-        </div>
-        <div class="src">
-          <div class="sicon">&#127783;</div>
-          <div>
-            <div class="sname">CHIRPS Daily</div>
-            <div class="sdesc">Rainfall &middot; June-September</div>
-          </div>
-        </div>
-        <div class="src">
-          <div class="sicon">&#127956;</div>
-          <div>
-            <div class="sname">SRTM DEM</div>
-            <div class="sdesc">Elevation + slope terrain</div>
-          </div>
-        </div>
-        <div class="src">
-          <div class="sicon">&#128167;</div>
-          <div>
-            <div class="sname">HydroSHEDS</div>
-            <div class="sdesc">Flow accumulation 15-arc</div>
-          </div>
-        </div>
-        <div class="src">
-          <div class="sicon">&#128752;</div>
-          <div>
-            <div class="sname">Landsat 8 NDWI</div>
-            <div class="sdesc">Permanent water mask</div>
-          </div>
-        </div>
-        <div class="src">
-          <div class="sicon">&#128101;</div>
-          <div>
-            <div class="sname">WorldPop + FAO GAUL</div>
-            <div class="sdesc">Population &middot; District bounds</div>
-          </div>
-        </div>
-      </div>
-
-      <div class="panel" style="margin-bottom: 40px">
-        <div class="ph">
-          <span class="phtitle">API Endpoints</span
-          ><span
-            style="
-              font-family: var(--mono);
-              font-size: 11px;
-              color: var(--muted);
-            "
-            id="spurl"
-          ></span>
-        </div>
-        <div class="pb">
-          <div class="pills">
-            <div class="pill" onclick="testEp('/reset', 'POST')">
-              <span class="pm">POST</span>/reset
-            </div>
-            <div class="pill" onclick="testEp('/step', 'POST')">
-              <span class="pm">POST</span>/step
-            </div>
-            <div class="pill" onclick="testEp('/state', 'GET')">
-              <span class="pm">GET</span>/state
-            </div>
-            <div class="pill" onclick="testEp('/tasks', 'GET')">
-              <span class="pm">GET</span>/tasks
-            </div>
-            <div class="pill" onclick="testEp('/health', 'GET')">
-              <span class="pm">GET</span>/health
-            </div>
-          </div>
-          <div class="apiout" id="apiout">
-            Click an endpoint to test it live
-          </div>
-        </div>
-      </div>
-
-      <footer>
-        <div class="ft">
-          CHRONOSTASIS &middot; Brahmaputra Valley Flood Intelligence &middot;
-          OpenEnv Round 1
-        </div>
-        <div class="ft">LunaAmagi &middot; 2026</div>
-      </footer>
     </div>
+    <div class="pb">
+      <div class="mode-row">
+        <span class="mode-lbl">MODE:</span>
+        <div class="toggle">
+          <div class="topt on" id="mDemo" onclick="setMode('demo')">DEMO</div>
+          <div class="topt" id="mAgent" onclick="setMode('agent')">REAL AGENT</div>
+        </div>
+        <span style="font-family:'Space Mono',monospace;font-size:9px;color:var(--mu);margin-left:4px;" id="modeTip">Hardcoded showcase responses</span>
+      </div>
+      <div class="tabs">
+        <div class="tab on" id="t0" onclick="pickTask('flood_year_comparison',0)"><div class="tname">Year Comparison</div><div class="tdiff easy">EASY</div></div>
+        <div class="tab" id="t1" onclick="pickTask('district_inundation_report',1)"><div class="tname">District Report</div><div class="tdiff medium">MEDIUM</div></div>
+        <div class="tab" id="t2" onclick="pickTask('flood_risk_forecast',2)"><div class="tname">Risk Forecast</div><div class="tdiff hard">HARD</div></div>
+      </div>
+      <div class="con" id="con">
+        <div class="cd">// Chronostasis OpenEnv v2 ready</div>
+        <div class="cd">// Select a region and task, then click RUN</div>
+        <div class="cd">// Real Agent mode uses live LLM via HuggingFace router</div>
+      </div>
+      <div class="thinking" id="thinking">
+        <div class="think-title">AGENT REASONING</div>
+        <div class="think-txt" id="thinkTxt">Analysing task context<span class="think-dots">...</span></div>
+      </div>
+      <div class="obs" id="obs"></div>
+      <div class="btns">
+        <button class="btn bs" onclick="doReset()" id="resetBtn">RESET</button>
+        <button class="btn bp" id="runBtn" onclick="doRun()">&#9654; RUN EPISODE</button>
+      </div>
+    </div>
+  </div>
 
-    <script>
-      var BASE = window.location.origin;
-      var curTask = "flood_year_comparison";
-      var running = false;
-      var totalRwd = 0;
-      var stepN = 0;
-      var maxSteps = 6;
+  <div style="display:flex;flex-direction:column;gap:14px;">
+    <div class="panel">
+      <div class="ph">
+        <span class="pht">Episode Score</span>
+        <span class="pht" id="sctr">0 / 0 steps</span>
+      </div>
+      <div class="pb">
+        <div class="rh"><span class="rl">TOTAL REWARD</span><span class="rv" id="rtot">0.000</span></div>
+        <div class="bg"><div class="bf" id="rbar"></div></div>
+        <div class="rh"><span class="rl">LAST STEP</span><span style="font-family:'Space Mono',monospace;font-size:15px;color:#88ccff;" id="rlast">&#8212;</span></div>
+        <div class="dbox" id="dbox">&#10003; EPISODE COMPLETE</div>
+      </div>
+    </div>
+    <div class="panel" style="flex:1;">
+      <div class="ph">
+        <span class="pht">Step History</span>
+        <span style="font-family:'Space Mono',monospace;font-size:9px;color:var(--ok);display:none;" id="okbdg">SUCCESS</span>
+      </div>
+      <div class="pb">
+        <div class="slist" id="slist"><div class="sempty">No steps yet</div></div>
+      </div>
+    </div>
+  </div>
+</div>
 
-      function clog(cls, txt) {
-        var el = document.getElementById("con");
-        var d = document.createElement("div");
-        d.className = cls;
-        d.textContent = txt;
-        el.appendChild(d);
-        el.scrollTop = el.scrollHeight;
-      }
+<!-- BOTTOM: DATA SOURCES + API -->
+<div class="bottom">
+  <div class="panel">
+    <div class="ph"><span class="pht">Satellite Data Sources</span></div>
+    <div class="pb">
+      <div class="srcs">
+        <div class="src"><div class="sico">&#128225;</div><div><div class="snm">Sentinel-1 SAR</div><div class="sdc">VV/VH &middot; 2022-2024</div></div></div>
+        <div class="src"><div class="sico">&#127783;</div><div><div class="snm">CHIRPS Daily</div><div class="sdc">Rainfall &middot; Jun-Sep</div></div></div>
+        <div class="src"><div class="sico">&#127956;</div><div><div class="snm">SRTM DEM</div><div class="sdc">Elevation + slope</div></div></div>
+        <div class="src"><div class="sico">&#128167;</div><div><div class="snm">HydroSHEDS</div><div class="sdc">Flow accumulation</div></div></div>
+        <div class="src"><div class="sico">&#128752;</div><div><div class="snm">Landsat 8 NDWI</div><div class="sdc">Permanent water mask</div></div></div>
+        <div class="src"><div class="sico">&#128101;</div><div><div class="snm">WorldPop + GAUL</div><div class="sdc">Population &middot; Districts</div></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="ph"><span class="pht">API Endpoints</span><span style="font-family:'Space Mono',monospace;font-size:10px;color:var(--mu);" id="spurl"></span></div>
+    <div class="pb">
+      <div class="pills">
+        <div class="pill" onclick="testEp('/reset','POST')"><span class="pm">POST</span>/reset</div>
+        <div class="pill" onclick="testEp('/step','POST')"><span class="pm">POST</span>/step</div>
+        <div class="pill" onclick="testEp('/agent/step','POST')"><span class="pm">POST</span>/agent/step</div>
+        <div class="pill" onclick="testEp('/state','GET')"><span class="pm">GET</span>/state</div>
+        <div class="pill" onclick="testEp('/regions','GET')"><span class="pm">GET</span>/regions</div>
+        <div class="pill" onclick="testEp('/health','GET')"><span class="pm">GET</span>/health</div>
+      </div>
+      <div class="aout" id="aout">Click an endpoint to test it live</div>
+    </div>
+  </div>
+</div>
 
-      function pickTask(id, idx) {
-        if (running) return;
-        curTask = id;
-        for (var i = 0; i < 3; i++) {
-          var el = document.getElementById("t" + i);
-          el.className = "tab" + (i === idx ? " on" : "");
-        }
-        clog("cd", "// Task: " + id);
-      }
+<footer>
+  <div class="ft">CHRONOSTASIS v2 &middot; India Flood Intelligence &middot; OpenEnv Round 1</div>
+  <div class="ft">LunaAmagi &middot; 2026 &middot; 5 River Basins &middot; Real LLM Agent</div>
+</footer>
+</div>
 
-      function apiFetch(url, method, body) {
-        var opts = {
-          method: method,
-          headers: { "Content-Type": "application/json" },
-        };
-        if (body !== null) opts.body = JSON.stringify(body);
-        return fetch(url, opts)
-          .then(function (r) {
-            var ct = r.headers.get("content-type") || "";
-            if (ct.indexOf("json") === -1) {
-              return r.text().then(function (t) {
-                return {
-                  ok: false,
-                  data: null,
-                  err: "HTTP " + r.status + ": " + t.substring(0, 60),
-                };
-              });
-            }
-            return r.json().then(function (data) {
-              if (!r.ok) return { ok: false, data: null, err: (data && data.detail ? (typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail)) : 'Error ' + r.status) };
-              return { ok: true, data: data, err: null };
-            });
-          })
-          .catch(function (e) {
-            return { ok: false, data: null, err: e.message };
-          });
-      }
+<script>
+var BASE = window.location.origin;
+var curTask = 'flood_year_comparison';
+var curRegion = 'brahmaputra';
+var mode = 'demo';
+var running = false;
+var totalRwd = 0;
+var stepN = 0;
+var maxS = 6;
+var regionsData = {};
 
-      function clearUI() {
-        running = false;
-        totalRwd = 0;
-        stepN = 0;
-        document.getElementById("rtot").textContent = "0.000";
-        document.getElementById("rbar").style.width = "0%";
-        document.getElementById("rlast").textContent = "\u2014";
-        document.getElementById("sctr").textContent = "0 / 0 steps";
-        document.getElementById("dbox").style.display = "none";
-        document.getElementById("okbdg").style.display = "none";
-        document.getElementById("obs").className = "obs";
-        document.getElementById("slist").innerHTML =
-          '<div class="sempty">No steps yet</div>';
-        document.getElementById("con").innerHTML =
-          '<div class="cd">// Episode reset</div>';
-      }
-
-      function doReset() {
-        if (running) return;
-        clearUI();
-        apiFetch(BASE + "/reset", "POST", { task_id: curTask }).then(
-          function (res) {
-            if (!res.ok) {
-              clog("cw", "[ERROR] " + res.err);
-              return;
-            }
-            var d = res.data;
-            maxSteps = d.max_steps || 6;
-            document.getElementById("sctr").textContent =
-              "0 / " + maxSteps + " steps";
-            clog("cs", "[START] task=" + d.task_id + " env=chronostasis");
-            clog(
-              "cd",
-              "// " + (d.task_description || "").substring(0, 80) + "...",
-            );
-            showObs(d.task_description || "");
-          },
-        );
-      }
-
-      function wait(ms) {
-        return new Promise(function (r) {
-          setTimeout(r, ms);
-        });
-      }
-
-      async function doRun() {
-        if (running) return;
-        document.getElementById("runBtn").disabled = true;
-        document.getElementById("spin").className = "spin on";
-        clearUI();
-
-        var res = await apiFetch(BASE + "/reset", "POST", { task_id: curTask });
-        if (!res.ok) {
-          clog("cw", "[ERROR] " + res.err);
-          document.getElementById("runBtn").disabled = false;
-          document.getElementById("spin").className = "spin";
-          return;
-        }
-        var d = res.data;
-        maxSteps = d.max_steps || 6;
-        document.getElementById("sctr").textContent =
-          "0 / " + maxSteps + " steps";
-        clog("cs", "[START] task=" + d.task_id + " env=chronostasis");
-        clog("cd", "// " + (d.task_description || "").substring(0, 80) + "...");
-
-        running = true;
-        var msgs = getResponses(curTask);
-        var rwds = [];
-
-        for (var i = 0; i < msgs.length; i++) {
-          if (!running) break;
-          await wait(950);
-          var msg = msgs[i];
-          clog(
-            "cd",
-            "> " + msg.substring(0, 70) + (msg.length > 70 ? "..." : ""),
-          );
-
-          var sr = await apiFetch(BASE + "/step", "POST", { message: msg });
-          stepN++;
-
-          if (!sr.ok) {
-            clog("cw", "[ERROR] " + sr.err);
-            rwds.push(0);
-            tickScore(0, 0);
-            addStep(stepN, msg, 0);
-            continue;
-          }
-
-          var sd = sr.data;
-          var rwd = typeof sd.reward === "number" ? sd.reward : 0;
-          var done = !!sd.done;
-          rwds.push(rwd);
-          totalRwd += rwd;
-
-          clog(
-            "cst",
-            "[STEP] step=" +
-              stepN +
-              " reward=" +
-              rwd.toFixed(2) +
-              " done=" +
-              done +
-              " error=" +
-              (sd.last_action_error || "null"),
-          );
-          tickScore(totalRwd, rwd);
-          addStep(stepN, msg, rwd);
-          if (sd.observation && sd.observation.last_action_result)
-            showObs(sd.observation.last_action_result);
-
-          if (done || stepN >= maxSteps) {
-            await wait(400);
-            var score = Math.min(totalRwd, 1.0);
-            var win = score >= 0.5;
-            clog(
-              "ce",
-              "[END] success=" +
-                win +
-                " steps=" +
-                stepN +
-                " score=" +
-                score.toFixed(3) +
-                " rewards=" +
-                rwds
-                  .map(function (v) {
-                    return v.toFixed(2);
-                  })
-                  .join(","),
-            );
-            document.getElementById("dbox").style.display = "block";
-            if (win) document.getElementById("okbdg").style.display = "block";
-            running = false;
-            break;
-          }
-        }
-
-        running = false;
-        document.getElementById("runBtn").disabled = false;
-        document.getElementById("spin").className = "spin";
-      }
-
-      function tickScore(tot, last) {
-        document.getElementById("rtot").textContent = Math.min(tot, 1).toFixed(
-          3,
-        );
-        document.getElementById("rbar").style.width =
-          Math.min(tot, 1) * 100 + "%";
-        document.getElementById("rlast").textContent =
-          (last >= 0 ? "+" : "") + last.toFixed(2);
-        document.getElementById("sctr").textContent =
-          stepN + " / " + maxSteps + " steps";
-      }
-
-      function addStep(num, action, rwd) {
-        var list = document.getElementById("slist");
-        if (num === 1) list.innerHTML = "";
-        var cls = rwd > 0 ? "pos" : rwd < 0 ? "neg" : "zer";
-        var d = document.createElement("div");
-        d.className = "sitem";
-        var safe = action
-          .replace(/&/g, "&amp;")
-          .replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;");
-        d.innerHTML =
-          '<span class="snum">S' +
-          num +
-          '</span><span class="sact">' +
-          safe.substring(0, 60) +
-          (safe.length > 60 ? "..." : "") +
-          '</span><span class="srwd ' +
-          cls +
-          '">' +
-          (rwd >= 0 ? "+" : "") +
-          rwd.toFixed(2) +
-          "</span>";
-        list.appendChild(d);
-        list.scrollTop = list.scrollHeight;
-      }
-
-      function showObs(txt) {
-        if (!txt) return;
-        var el = document.getElementById("obs");
-        el.className = "obs show";
-        el.textContent =
-          txt.substring(0, 160) + (txt.length > 160 ? "..." : "");
-      }
-
-      function testEp(path, method) {
-        document.getElementById("apiout").textContent =
-          "Fetching " + method + " " + path + "...";
-        apiFetch(BASE + path, method, method === "POST" ? {} : null).then(
-          function (res) {
-            if (!res.ok) {
-              document.getElementById("apiout").textContent =
-                "Error: " + res.err;
-            } else {
-              var txt = JSON.stringify(res.data, null, 2);
-              document.getElementById("apiout").textContent =
-                txt.substring(0, 800) + (txt.length > 800 ? "\n..." : "");
-            }
-          },
-        );
-      }
-
-      function getResponses(taskId) {
-        var r = {
-          flood_year_comparison: [
-            "Running SAR flood detection for 2022, 2023, and 2024 using Sentinel-1 VV at -16dB threshold.",
-            "SAR complete. 2022 flood extent: 4812.3 km2. 2023: 3601.7 km2. 2024: 4101.2 km2. Year 2022 had the largest and most severe flood extent across all three years — the highest inundation.",
-            "The 2022 flooding was driven by CHIRPS rainfall exceeding 1500mm in July. DEM shows zones below 60m most affected. HydroSHEDS flow accumulation confirms drainage convergence. Slope below 3 degrees allowed extensive pooling.",
-          ],
-          district_inundation_report: [
-            "Districts flooded all 3 years: Morigaon, Dhubri, and Barpeta confirmed by SAR flood frequency raster analysis. Goalpara and Kamrup also identified as chronically affected.",
-            "All 5 chronic districts confirmed. Total chronically inundated area: 1247.6 km2 across zones flooded in all 3 monsoon seasons 2022-2024.",
-            "Population estimate using WorldPop overlaid with chronic flood extent: approximately 2400000 people affected in these districts every monsoon season.",
-            "Summary: Morigaon, Dhubri, Barpeta, Goalpara, Kamrup. Area 1247.6 km2. Population 2.4 million at annual risk.",
-          ],
-          flood_risk_forecast: [
-            "Accuracy metrics retrieved: model accuracy 92.39 percent. Precision 89.2 percent, Recall 88.7 percent, F1 score 0.889 against NDWI-corrected SAR ground truth.",
-            "Risk zone statistics: high risk 3218.4 km2, moderate risk 5901.2 km2, low risk 8240.1 km2. Using 2022 as worst-case reference benchmark.",
-            "High-risk zones for 2025: lower Brahmaputra floodplain and Dhubri district riverbank at highest risk based on SAR history and flow accumulation.",
-            "CHIRPS rainfall 2022 peak at 1500mm. Barpeta wetland belt and Morigaon char lands flagged for 2025 monsoon season forecast.",
-            "Final 2025 forecast: lower Brahmaputra floodplain and Dhubri face highest risk. Early warning recommended by May 2025.",
-          ],
-        };
-        return r[taskId] || r["flood_year_comparison"];
-      }
-
-      apiFetch(BASE + "/health", "GET", null).then(function (res) {
-        if (res.ok) {
-          document.getElementById("dot").className = "dot live";
-          document.getElementById("stxt").textContent =
-            "Running · GEE " + (res.data.gee_available ? "Live" : "Mock");
-          document.getElementById("spurl").textContent = BASE;
-        } else {
-          document.getElementById("dot").className = "dot err";
-          document.getElementById("stxt").textContent = "Offline";
-        }
+/* ── FETCH HELPER ── */
+function apiFetch(url, method, body) {
+  var opts = {method: method, headers: {'Content-Type': 'application/json'}};
+  if (body !== null && body !== undefined) opts.body = JSON.stringify(body);
+  return fetch(url, opts).then(function(r) {
+    var ct = r.headers.get('content-type') || '';
+    if (ct.indexOf('json') === -1) {
+      return r.text().then(function(t) {
+        return {ok: false, data: null, err: 'HTTP ' + r.status + ': ' + t.substring(0, 80)};
       });
-    </script>
-  </body>
+    }
+    return r.json().then(function(data) {
+      if (!r.ok) {
+        var msg = data && data.detail ? (typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail)) : 'Error ' + r.status;
+        return {ok: false, data: null, err: msg};
+      }
+      return {ok: true, data: data, err: null};
+    });
+  }).catch(function(e) { return {ok: false, data: null, err: e.message}; });
+}
+
+/* ── CONSOLE ── */
+function clog(cls, txt) {
+  var el = document.getElementById('con');
+  var d = document.createElement('div');
+  d.className = cls;
+  d.textContent = txt;
+  el.appendChild(d);
+  el.scrollTop = el.scrollHeight;
+}
+
+/* ── REGIONS ── */
+function loadRegions() {
+  apiFetch(BASE + '/regions', 'GET', null).then(function(res) {
+    if (!res.ok) { buildFallbackRegions(); return; }
+    var regions = res.data;
+    regions.forEach(function(r) { regionsData[r.id] = r; });
+    renderRegions(regions);
+    updateStats('brahmaputra');
+  });
+}
+
+function buildFallbackRegions() {
+  var fallback = [
+    {id:'brahmaputra',name:'Brahmaputra Valley',state:'Assam',river:'Brahmaputra',accuracy_pct:92.39,peak_year:2022,flood_areas:{'2022':4812.3,'2023':3601.7,'2024':4101.2}},
+    {id:'ganga',name:'Ganga Plains',state:'Bihar',river:'Ganga',accuracy_pct:89.74,peak_year:2022,flood_areas:{'2022':6241.8,'2023':4987.3,'2024':5614.6}},
+    {id:'mahanadi',name:'Mahanadi Delta',state:'Odisha',river:'Mahanadi',accuracy_pct:90.12,peak_year:2024,flood_areas:{'2022':3142.7,'2023':2801.4,'2024':3498.6}},
+    {id:'krishna',name:'Krishna River Basin',state:'Andhra Pradesh',river:'Krishna',accuracy_pct:88.91,peak_year:2024,flood_areas:{'2022':2418.9,'2023':1934.2,'2024':2701.5}},
+    {id:'godavari',name:'Godavari Basin',state:'Telangana / AP',river:'Godavari',accuracy_pct:91.08,peak_year:2022,flood_areas:{'2022':3814.2,'2023':2612.8,'2024':3109.4}}
+  ];
+  fallback.forEach(function(r) { regionsData[r.id] = r; });
+  renderRegions(fallback);
+  updateStats('brahmaputra');
+}
+
+function renderRegions(regions) {
+  var el = document.getElementById('rlist');
+  el.innerHTML = '';
+  regions.forEach(function(r) {
+    var d = document.createElement('div');
+    d.className = 'rcard' + (r.id === curRegion ? ' on' : '');
+    d.id = 'rc_' + r.id;
+    d.onclick = function() { pickRegion(r.id); };
+    d.innerHTML = '<div class="riv">' + r.river.toUpperCase() + '</div>' +
+                  '<div class="rname">' + r.name + '</div>' +
+                  '<div class="rst">' + r.state + '</div>' +
+                  '<div class="racc">' + r.accuracy_pct.toFixed(1) + '% accuracy</div>';
+    el.appendChild(d);
+  });
+}
+
+function pickRegion(id) {
+  if (running) return;
+  curRegion = id;
+  document.querySelectorAll('.rcard').forEach(function(c) { c.className = 'rcard'; });
+  var el = document.getElementById('rc_' + id);
+  if (el) el.className = 'rcard on';
+  updateStats(id);
+  clog('cd', '// Region: ' + (regionsData[id] ? regionsData[id].name : id));
+}
+
+function updateStats(id) {
+  var r = regionsData[id];
+  if (!r) return;
+  var fa = r.flood_areas;
+  var peak = fa[String(r.peak_year)] || 0;
+  document.getElementById('stAcc').textContent = r.accuracy_pct.toFixed(2) + '%';
+  document.getElementById('stPeak').textContent = r.peak_year;
+  document.getElementById('stPeakSub').textContent = fmt(peak) + ' km\u00B2 inundated';
+  // chronic and pop from known data
+  var known = {
+    brahmaputra:{c:'1,247 km\u00B2',p:'2.4M'},
+    ganga:{c:'2,108 km\u00B2',p:'3.8M'},
+    mahanadi:{c:'891 km\u00B2',p:'1.2M'},
+    krishna:{c:'613 km\u00B2',p:'0.82M'},
+    godavari:{c:'1,052 km\u00B2',p:'1.5M'}
+  };
+  var k = known[id] || {c:'--',p:'--'};
+  document.getElementById('stChron').textContent = k.c;
+  document.getElementById('stPop').textContent = k.p;
+}
+
+function fmt(n) {
+  return Math.round(n).toLocaleString();
+}
+
+/* ── TASK + MODE ── */
+function pickTask(id, idx) {
+  if (running) return;
+  curTask = id;
+  for (var i = 0; i < 3; i++) {
+    document.getElementById('t' + i).className = 'tab' + (i === idx ? ' on' : '');
+  }
+  clog('cd', '// Task: ' + id);
+}
+
+function setMode(m) {
+  mode = m;
+  document.getElementById('mDemo').className = 'topt' + (m === 'demo' ? ' on' : '');
+  document.getElementById('mAgent').className = 'topt' + (m === 'agent' ? ' on' : '');
+  document.getElementById('modeTip').textContent = m === 'agent' ? 'Live LLM via HuggingFace router' : 'Hardcoded showcase responses';
+  var btn = document.getElementById('runBtn');
+  if (m === 'agent') {
+    btn.className = 'btn bp agent';
+    btn.innerHTML = '&#9670; RUN REAL AGENT';
+  } else {
+    btn.className = 'btn bp';
+    btn.innerHTML = '&#9654; RUN EPISODE';
+  }
+}
+
+/* ── UI RESET ── */
+function clearUI() {
+  running = false; totalRwd = 0; stepN = 0;
+  document.getElementById('rtot').textContent = '0.000';
+  document.getElementById('rbar').style.width = '0%';
+  document.getElementById('rlast').textContent = '\u2014';
+  document.getElementById('sctr').textContent = '0 / 0 steps';
+  document.getElementById('dbox').style.display = 'none';
+  document.getElementById('okbdg').style.display = 'none';
+  document.getElementById('obs').className = 'obs';
+  document.getElementById('thinking').className = 'thinking';
+  document.getElementById('slist').innerHTML = '<div class="sempty">No steps yet</div>';
+  document.getElementById('con').innerHTML = '<div class="cd">// Episode reset</div>';
+}
+
+function doReset() {
+  if (running) return;
+  clearUI();
+  apiFetch(BASE + '/reset', 'POST', {task_id: curTask, region_id: curRegion}).then(function(res) {
+    if (!res.ok) { clog('cw', '[ERROR] ' + res.err); return; }
+    var d = res.data;
+    maxS = d.max_steps || 6;
+    document.getElementById('sctr').textContent = '0 / ' + maxS + ' steps';
+    clog('cs', '[START] task=' + d.task_id + ' region=' + d.region_id + ' env=chronostasis');
+    clog('cd', '// ' + (d.task_description || '').substring(0, 90) + '...');
+    showObs(d.task_description || '');
+  });
+}
+
+function wait(ms) { return new Promise(function(r) { setTimeout(r, ms); }); }
+
+async function doRun() {
+  if (running) return;
+  document.getElementById('runBtn').disabled = true;
+  document.getElementById('spin').className = 'spin on';
+  clearUI();
+
+  var res = await apiFetch(BASE + '/reset', 'POST', {task_id: curTask, region_id: curRegion});
+  if (!res.ok) {
+    clog('cw', '[ERROR] ' + res.err);
+    document.getElementById('runBtn').disabled = false;
+    document.getElementById('spin').className = 'spin';
+    return;
+  }
+  var d = res.data;
+  maxS = d.max_steps || 6;
+  document.getElementById('sctr').textContent = '0 / ' + maxS + ' steps';
+  clog('cs', '[START] task=' + d.task_id + ' region=' + d.region_id + ' env=chronostasis model=' + (mode === 'agent' ? 'LLM' : 'demo'));
+  clog('cd', '// ' + (d.task_description || '').substring(0, 90) + '...');
+  if (mode === 'agent') {
+    document.getElementById('agentMode').textContent = 'LIVE LLM';
+  }
+
+  running = true;
+  var rwds = [];
+
+  if (mode === 'agent') {
+    await runRealAgent(rwds);
+  } else {
+    await runDemo(rwds);
+  }
+
+  running = false;
+  document.getElementById('runBtn').disabled = false;
+  document.getElementById('spin').className = 'spin';
+  document.getElementById('thinking').className = 'thinking';
+  document.getElementById('agentMode').textContent = '';
+}
+
+async function runRealAgent(rwds) {
+  for (var i = 0; i < maxS; i++) {
+    if (!running) break;
+
+    // Show thinking state
+    document.getElementById('thinking').className = 'thinking show';
+    document.getElementById('thinkTxt').innerHTML = 'Reasoning about step ' + (stepN + 1) + ' of ' + maxS + '<span class="think-dots">...</span>';
+    clog('cd', '// Agent reasoning...');
+
+    await wait(300);
+    var sr = await apiFetch(BASE + '/agent/step', 'POST', {});
+
+    document.getElementById('thinking').className = 'thinking';
+
+    if (!sr.ok) {
+      clog('cw', '[ERROR] ' + sr.err);
+      if (sr.err.indexOf('503') !== -1 || sr.err.indexOf('key') !== -1) {
+        clog('cw', '// No LLM key configured. Switch to DEMO mode.');
+        break;
+      }
+      rwds.push(0); stepN++;
+      addStep(stepN, 'LLM call failed', 0);
+      tickScore(totalRwd, 0);
+      continue;
+    }
+
+    var sd = sr.data;
+    stepN = sd.step;
+    var rwd = typeof sd.reward === 'number' ? sd.reward : 0;
+    var done = !!sd.done;
+    rwds.push(rwd);
+    totalRwd = sd.total_reward || (totalRwd + rwd);
+
+    // Show agent message in console
+    var msg = sd.agent_message || '';
+    clog('ca', '> [LLM] ' + msg.substring(0, 90) + (msg.length > 90 ? '...' : ''));
+    clog('cst', '[STEP] step=' + stepN + ' reward=' + rwd.toFixed(2) + ' done=' + done);
+    if (sd.result) clog('cd', '// ' + sd.result.substring(0, 80));
+
+    tickScore(totalRwd, rwd);
+    addStep(stepN, msg, rwd);
+    if (msg) showObs(msg.substring(0, 160));
+
+    if (done || stepN >= maxS) {
+      await wait(300);
+      endEpisode(rwds, Math.min(totalRwd, 1.0));
+      break;
+    }
+    await wait(600);
+  }
+}
+
+async function runDemo(rwds) {
+  var msgs = getDemoResponses(curTask, curRegion);
+  for (var i = 0; i < msgs.length; i++) {
+    if (!running) break;
+    await wait(900);
+    var msg = msgs[i];
+    clog('cd', '> ' + msg.substring(0, 72) + (msg.length > 72 ? '...' : ''));
+
+    var sr = await apiFetch(BASE + '/step', 'POST', {message: msg});
+    stepN++;
+
+    if (!sr.ok) {
+      clog('cw', '[ERROR] ' + sr.err);
+      rwds.push(0); addStep(stepN, msg, 0); tickScore(totalRwd, 0);
+      continue;
+    }
+
+    var sd = sr.data;
+    var rwd = typeof sd.reward === 'number' ? sd.reward : 0;
+    var done = !!sd.done;
+    rwds.push(rwd); totalRwd += rwd;
+
+    clog('cst', '[STEP] step=' + stepN + ' reward=' + rwd.toFixed(2) + ' done=' + done + ' error=' + (sd.last_action_error || 'null'));
+    tickScore(totalRwd, rwd);
+    addStep(stepN, msg, rwd);
+    if (sd.observation && sd.observation.last_action_result) showObs(sd.observation.last_action_result);
+
+    if (done || stepN >= maxS) {
+      await wait(300);
+      endEpisode(rwds, Math.min(totalRwd, 1.0));
+      break;
+    }
+  }
+}
+
+function endEpisode(rwds, score) {
+  var win = score >= 0.5;
+  clog('ce', '[END] success=' + win + ' steps=' + stepN + ' score=' + score.toFixed(3) + ' rewards=' + rwds.map(function(v){return v.toFixed(2);}).join(','));
+  document.getElementById('dbox').style.display = 'block';
+  if (win) document.getElementById('okbdg').style.display = 'block';
+  running = false;
+}
+
+function tickScore(tot, last) {
+  document.getElementById('rtot').textContent = Math.min(tot, 1).toFixed(3);
+  document.getElementById('rbar').style.width = (Math.min(tot, 1) * 100) + '%';
+  document.getElementById('rlast').textContent = (last >= 0 ? '+' : '') + last.toFixed(2);
+  document.getElementById('sctr').textContent = stepN + ' / ' + maxS + ' steps';
+}
+
+function addStep(num, action, rwd) {
+  var list = document.getElementById('slist');
+  if (num === 1) list.innerHTML = '';
+  var cls = rwd > 0 ? 'pos' : rwd < 0 ? 'neg' : 'zer';
+  var d = document.createElement('div');
+  d.className = 'si';
+  var safe = String(action).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  d.innerHTML = '<span class="snum">S' + num + '</span><span class="sact">' + safe.substring(0,60) + (safe.length>60?'...':'') + '</span><span class="sr ' + cls + '">' + (rwd>=0?'+':'') + rwd.toFixed(2) + '</span>';
+  list.appendChild(d);
+  list.scrollTop = list.scrollHeight;
+}
+
+function showObs(txt) {
+  if (!txt) return;
+  var el = document.getElementById('obs');
+  el.className = 'obs show';
+  el.textContent = String(txt).substring(0, 160) + (txt.length > 160 ? '...' : '');
+}
+
+function testEp(path, method) {
+  document.getElementById('aout').textContent = 'Fetching ' + method + ' ' + path + '...';
+  var body = null;
+  if (method === 'POST') {
+    if (path === '/reset') body = {task_id: curTask, region_id: curRegion};
+    else body = {};
+  }
+  apiFetch(BASE + path, method, body).then(function(res) {
+    if (!res.ok) {
+      document.getElementById('aout').textContent = 'Error: ' + res.err;
+    } else {
+      var txt = JSON.stringify(res.data, null, 2);
+      document.getElementById('aout').textContent = txt.substring(0, 800) + (txt.length > 800 ? '\n...' : '');
+    }
+  });
+}
+
+/* ── DEMO RESPONSES (region-aware) ── */
+function getDemoResponses(taskId, regionId) {
+  var r = regionsData[regionId] || {};
+  var fa = r.flood_areas || {'2022': 4812, '2023': 3601, '2024': 4101};
+  var peak = r.peak_year || 2022;
+  var name = r.name || 'Brahmaputra Valley';
+  var river = r.river || 'Brahmaputra';
+  var acc = r.accuracy_pct || 92.39;
+
+  var known = {
+    brahmaputra:{c:1247.6,p:2400000,d:['Morigaon','Dhubri','Barpeta','Goalpara','Kamrup'],z:['lower Brahmaputra floodplain','Dhubri district riverbank','Barpeta wetland belt','Morigaon char lands'],rh:3218,rm:5901,rl:8240,rain:1500},
+    ganga:{c:2108.4,p:3800000,d:['Darbhanga','Sitamarhi','Madhubani','Saharsa','Supaul'],z:['North Bihar Kosi belt','Darbhanga low-lying plains','Gandak floodplain','Bagmati river corridor'],rh:4812,rm:7234,rl:9801,rain:1200},
+    mahanadi:{c:891.3,p:1200000,d:['Kendrapara','Jagatsinghpur','Cuttack','Puri'],z:['Mahanadi delta coastal belt','Kendrapara mangrove zone','Chilika lake periphery','Cuttack riverine islands'],rh:2104,rm:4312,rl:6801,rain:1350},
+    krishna:{c:612.7,p:820000,d:['Krishna','Guntur','West Godavari','Prakasam'],z:['Krishna delta estuary','Guntur low-lying agricultural belt','Nagarjuna Sagar reservoir downstream','Krishna-Godavari confluence zone'],rh:1502,rm:3214,rl:5401,rain:980},
+    godavari:{c:1051.8,p:1500000,d:['Bhadradri Kothagudem','Mulugu','East Godavari','West Godavari'],z:['Godavari riverine forest belt','Bhadrachalam flood plains','Papikonda gorge downstream','East Godavari delta'],rh:2401,rm:4812,rl:7204,rain:1100}
+  };
+  var kd = known[regionId] || known['brahmaputra'];
+  var v22 = fa['2022'] || 4812, v23 = fa['2023'] || 3601, v24 = fa['2024'] || 4101;
+
+  var responses = {
+    flood_year_comparison: [
+      'Running SAR flood detection for ' + name + ' (2022-2024) using Sentinel-1 VV at -16dB threshold against dry-season baseline.',
+      'SAR analysis complete for ' + river + ' basin. 2022: ' + v22.toFixed(1) + ' km2. 2023: ' + v23.toFixed(1) + ' km2. 2024: ' + v24.toFixed(1) + ' km2. Year ' + peak + ' had the largest and most severe flood extent.',
+      'The ' + peak + ' flooding was driven by CHIRPS rainfall exceeding ' + kd.rain + 'mm in July. DEM analysis shows zones below 60m elevation most affected. HydroSHEDS flow accumulation confirms drainage convergence in the ' + river + ' basin. Slope below 3 degrees allowed extensive pooling.'
+    ],
+    district_inundation_report: [
+      'Districts flooded all 3 years in ' + name + ': ' + kd.d.slice(0,3).join(', ') + ' confirmed by SAR flood frequency raster. ' + kd.d.slice(3).join(' and ') + ' also identified as chronically affected.',
+      'All ' + kd.d.length + ' chronic districts confirmed. Total chronically inundated area: ' + kd.c.toFixed(1) + ' km2 across zones flooded in all 3 monsoon seasons 2022-2024.',
+      'Population estimate using WorldPop overlaid with chronic flood extent for ' + name + ': approximately ' + kd.p.toLocaleString() + ' people affected every monsoon season.',
+      'Summary: ' + kd.d.join(', ') + '. Chronic area ' + kd.c.toFixed(1) + ' km2. Population ' + (kd.p/1000000).toFixed(1) + ' million at annual flood risk.'
+    ],
+    flood_risk_forecast: [
+      'Accuracy metrics for ' + name + ': model accuracy ' + acc.toFixed(2) + ' percent. Validated against NDWI-corrected SAR ground truth 2022-2024.',
+      'Risk zone statistics: high risk ' + kd.rh + ' km2, moderate risk ' + kd.rm + ' km2, low risk ' + kd.rl + ' km2. Using ' + peak + ' as worst-case reference benchmark for ' + river + ' basin.',
+      'High-risk zones for 2025 monsoon: ' + kd.z[0] + ' and ' + kd.z[1] + ' at highest risk based on SAR history and flow accumulation analysis.',
+      'CHIRPS rainfall ' + peak + ' peak at ' + kd.rain + 'mm. ' + kd.z[2] + ' and ' + kd.z[3] + ' flagged as critical zones for 2025 forecast.',
+      'Final 2025 forecast for ' + name + ': ' + kd.z[0] + ' faces highest inundation risk. Early warning deployment recommended by May 2025 in ' + kd.d[0] + ' and ' + kd.d[1] + '.'
+    ]
+  };
+  return responses[taskId] || responses['flood_year_comparison'];
+}
+
+/* ── INIT ── */
+apiFetch(BASE + '/health', 'GET', null).then(function(res) {
+  if (res.ok) {
+    document.getElementById('dot').className = 'dot live';
+    var gee = res.data.gee_available ? 'GEE Live' : 'GEE Mock';
+    var llm = res.data.llm_configured ? ' | LLM Ready' : ' | No LLM Key';
+    document.getElementById('stxt').textContent = 'Running | ' + gee + llm;
+    document.getElementById('spurl').textContent = BASE;
+    if (res.data.llm_configured) {
+      document.getElementById('modelTag').textContent = res.data.agent_model;
+      document.getElementById('modelTag').style.display = 'inline';
+    }
+  } else {
+    document.getElementById('dot').className = 'dot err';
+    document.getElementById('stxt').textContent = 'Offline';
+  }
+});
+
+loadRegions();
+</script>
+</body>
 </html>
