@@ -26,7 +26,7 @@ from tasks import TASK_REGISTRY, REGIONS, DEFAULT_REGION, BaseTask
 # ──────────────────────────────────────────────
 GEE_PROJECT   = os.getenv("GEE_PROJECT", "your-gee-project-id")
 GROQ_API_KEY  = os.getenv("GROQ_API_KEY", "")
-AGENT_MODEL   = "gemini-1.5-flash"
+AGENT_MODEL   = "llama-3.3-70b-versatile"
 
 
 def init_gee():
