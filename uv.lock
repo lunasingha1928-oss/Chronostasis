@@ -1,0 +1,15 @@
+version = 1
+requires-python = ">=3.10"
+
+[[package]]
+name = "chronostasis"
+version = "1.0.0"
+source = { editable = "." }
+dependencies = [
+  { name = "fastapi" },
+  { name = "uvicorn" },
+  { name = "pydantic" },
+  { name = "openai" },
+  { name = "numpy" },
+  { name = "openenv-core" },
+]
