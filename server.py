@@ -26,7 +26,7 @@ from tasks import TASK_REGISTRY, REGIONS, DEFAULT_REGION, BaseTask
 # ──────────────────────────────────────────────
 GEE_PROJECT   = os.getenv("GEE_PROJECT", "your-gee-project-id")
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", "")
-AGENT_MODEL   = "gemini-1.5-flash"
+AGENT_MODEL   = "gemini-2.0-flash"
 
 
 def init_gee():
