@@ -237,11 +237,11 @@ async def step(action: FloodAction):
     ep = _current_episode
     ep.step += 1
     result = ep.task.step(action.message, ep.step)
-    reward = float(result["reward"])
-    done   = bool(result["done"]) or ep.step >= ep.task.max_steps
+    reward = float(result.get("reward", 0) or 0)
+    done   = bool(result.get("done", False)) or ep.step >= ep.task.max_steps
     error  = result.get("error")
 
-    ep.total_reward += reward
+    ep.total_reward = round(ep.total_reward + reward, 4)
     ep.done = done
     ep.history.append({"step": ep.step, "action": action.message[:200], "reward": reward, "done": done})
 
@@ -274,45 +274,96 @@ async def state():
 # ──────────────────────────────────────────────
 
 @app.post("/agent/step")
-async def agent_step():
-    """Run ONE real LLM agent step against the current episode."""
+async def agent_step(request: ResetRequest = ResetRequest()):
+    """
+    Self-contained agent step — resets episode internally so it works
+    across multiple HF Space replicas (no shared global state needed).
+    Pass task_id and region_id in the request body.
+    """
     global _current_episode
     try:
-        if _current_episode is None:
-            raise HTTPException(400, "No active episode. Call /reset first.")
-        if _current_episode.done:
-            raise HTTPException(400, "Episode is done.")
-
         client = get_llm_client()
         if not client:
-            raise HTTPException(503, "No GROQ_API_KEY in secrets. Add GROQ_API_KEY to HF Space secrets.")
+            raise HTTPException(503, "No GROQ_API_KEY in Space secrets.")
+
+        # Always reset internally to avoid multi-replica state issues
+        task_id   = request.task_id   or "flood_year_comparison"
+        region_id = request.region_id or DEFAULT_REGION
+
+        if task_id not in TASK_REGISTRY:
+            raise HTTPException(400, f"Unknown task: {task_id}")
+        if region_id not in REGIONS:
+            raise HTTPException(400, f"Unknown region: {region_id}")
+
+        # Use existing episode if valid, else create new one
+        if (_current_episode is None
+                or _current_episode.done
+                or _current_episode.task.task_id != task_id
+                or _current_episode.region_id != region_id):
+            task = TASK_REGISTRY[task_id](gee_available=GEE_AVAILABLE, region=region_id)
+            _current_episode = EpisodeState(task, region_id)
 
         ep = _current_episode
+        region = REGIONS[ep.region_id]
 
-        try:
-            prompt = build_agent_prompt(ep)
-        except Exception as pe:
-            raise HTTPException(500, f"Prompt build failed: {type(pe).__name__}: {str(pe)[:200]}")
+        # Build prompt
+        history_txt = ""
+        if ep.history:
+            lines = [f"Step {h['step']}: reward={h['reward']:.2f} | {h['action'][:80]}"
+                     for h in ep.history[-3:]]
+            history_txt = "\n".join(lines)
 
+        fa = region['flood_areas']
+        fa_str = ", ".join(f"{yr}={fa.get(yr, fa.get(str(yr), 0))}" for yr in [2022, 2023, 2024])
+        rz = region['risk_zones_km2']
+
+        prompt = "\n".join([
+            f"You are a GIS flood analysis agent for {region['name']} ({region['state']}).",
+            f"",
+            f"TASK: {ep.task.description}",
+            f"",
+            f"CONTEXT:",
+            f"- River: {region['river']}",
+            f"- Model accuracy: {region['accuracy_pct']}%",
+            f"- Flood areas km2: {fa_str}",
+            f"- Peak flood year: {region['peak_year']}",
+            f"- Chronic inundation area: {region['chronic_km2']} km2",
+            f"- Population at risk: {region['chronic_pop']:,}",
+            f"- Chronic districts: {', '.join(region['chronic_districts'])}",
+            f"- High-risk zones: {', '.join(region['high_risk_zones'])}",
+            f"- Risk zones km2: high={rz['high']}, moderate={rz['moderate']}, low={rz['low']}",
+            f"- Peak rainfall: {region['peak_rainfall_mm']}mm",
+            f"",
+            f"STEP {ep.step + 1} of {ep.task.max_steps}",
+            f"PREVIOUS: {history_txt or 'None yet'}",
+            f"",
+            f"Give a concise, data-backed response with exact numbers and zone names.",
+        ])
+
+        # Call Groq
         try:
             completion = client.chat.completions.create(
                 model=AGENT_MODEL,
                 messages=[
-                    {"role": "system", "content": "You are a precise GIS flood analysis agent. Always include exact numbers, district names, and km2 figures."},
+                    {"role": "system", "content": "You are a precise GIS flood analyst. Always cite exact km2 figures, district names, and percentages from the context provided."},
                     {"role": "user", "content": prompt}
                 ],
-                max_tokens=400,
+                max_tokens=350,
                 temperature=0.3,
             )
             message = (completion.choices[0].message.content or "").strip()
         except Exception as exc:
-            raise HTTPException(502, f"Groq API error: {type(exc).__name__}: {str(exc)[:300]}")
+            raise HTTPException(502, f"Groq error: {type(exc).__name__}: {str(exc)[:250]}")
 
+        if not message:
+            raise HTTPException(502, "Groq returned empty response")
+
+        # Grade the response
         ep.step += 1
         result = ep.task.step(message, ep.step)
         reward = float(result.get("reward", 0) or 0)
         done   = bool(result.get("done", False)) or ep.step >= ep.task.max_steps
-        ep.total_reward += reward
+        ep.total_reward = round(ep.total_reward + reward, 4)
         ep.done = done
         ep.history.append({"step": ep.step, "action": message[:200], "reward": reward, "done": done})
 
@@ -324,11 +375,14 @@ async def agent_step():
             "result":        result.get("result", ""),
             "total_reward":  ep.total_reward,
             "model":         AGENT_MODEL,
+            "task_id":       task_id,
+            "region_id":     region_id,
         }
+
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(500, f"Unexpected error: {type(e).__name__}: {str(e)[:300]}")
+        raise HTTPException(500, f"Unexpected: {type(e).__name__}: {str(e)[:300]}")
 
 
 # ──────────────────────────────────────────────

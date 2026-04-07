@@ -402,7 +402,7 @@ function setMode(m) {
   mode = m;
   document.getElementById('mDemo').className = 'topt' + (m === 'demo' ? ' on' : '');
   document.getElementById('mAgent').className = 'topt' + (m === 'agent' ? ' on' : '');
-  document.getElementById('modeTip').textContent = m === 'agent' ? 'Live LLM via HuggingFace router' : 'Hardcoded showcase responses';
+  document.getElementById('modeTip').textContent = m === 'agent' ? 'Live Groq Llama 3.3 70B agent' : 'Hardcoded showcase responses';
   var btn = document.getElementById('runBtn');
   if (m === 'agent') {
     btn.className = 'btn bp agent';
@@ -492,7 +492,7 @@ async function runRealAgent(rwds) {
     clog('cd', '// Agent reasoning...');
 
     await wait(300);
-    var sr = await apiFetch(BASE + '/agent/step', 'POST', {});
+    var sr = await apiFetch(BASE + '/agent/step', 'POST', {task_id: curTask, region_id: curRegion});
 
     document.getElementById('thinking').className = 'thinking';
 
@@ -530,7 +530,7 @@ async function runRealAgent(rwds) {
       endEpisode(rwds, Math.min(totalRwd, 1.0));
       break;
     }
-    await wait(6000);
+    await wait(600);
   }
 }
 
