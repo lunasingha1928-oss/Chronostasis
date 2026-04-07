@@ -310,7 +310,7 @@ async def agent_step():
 
         ep.step += 1
         result = ep.task.step(message, ep.step)
-        reward = float(result.get("reward", 0))
+        reward = float(result.get("reward", 0) or 0)
         done   = bool(result.get("done", False)) or ep.step >= ep.task.max_steps
         ep.total_reward += reward
         ep.done = done
