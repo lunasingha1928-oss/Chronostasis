@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chronostasis — Flood Intelligence</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #060a0f;
+    --surface: #0c1219;
+    --surface2: #111920;
+    --border: #1a2a38;
+    --accent: #00d4ff;
+    --accent2: #0066ff;
+    --warn: #ff6b2b;
+    --success: #00ff88;
+    --text: #e8f4f8;
+    --muted: #4a7a9b;
+    --mono: 'Space Mono', monospace;
+    --sans: 'Syne', sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Animated grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Glow orbs */
+  body::after {
+    content: '';
+    position: fixed;
+    top: -200px;
+    left: -200px;
+    width: 600px;
+    height: 600px;
+    background: radial-gradient(circle, rgba(0,102,255,0.08) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+    animation: orb 8s ease-in-out infinite alternate;
+  }
+
+  @keyframes orb {
+    to { transform: translate(300px, 200px); }
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  /* ── HEADER ── */
+  header {
+    padding: 32px 0 24px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .logo {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+  }
+
+  .logo-name {
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: -1px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .logo-tag {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  .status-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 8px 16px;
+    border-radius: 100px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--success);
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(0,255,136,0.4); }
+    50% { opacity: 0.8; box-shadow: 0 0 0 6px rgba(0,255,136,0); }
+  }
+
+  /* ── HERO STATS ── */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 40px;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+
+  .stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  .stat-card:hover { border-color: var(--accent); }
+  .stat-card:hover::before { opacity: 1; }
+
+  .stat-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  .stat-value {
+    font-size: 32px;
+    font-weight: 800;
+    letter-spacing: -1px;
+    color: var(--accent);
+    line-height: 1;
+  }
+
+  .stat-sub {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 6px;
+  }
+
+  /* ── MAIN GRID ── */
+  .main-grid {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 24px;
+    margin-bottom: 40px;
+  }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+  }
+
+  .panel-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .panel-title {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  .panel-body { padding: 20px; }
+
+  /* ── TASK SELECTOR ── */
+  .task-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+
+  .task-tab {
+    flex: 1;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-align: center;
+  }
+
+  .task-tab:hover { border-color: var(--muted); }
+
+  .task-tab.active {
+    background: rgba(0,212,255,0.08);
+    border-color: var(--accent);
+  }
+
+  .task-tab-name {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 2px;
+  }
+
+  .task-tab-diff {
+    font-family: var(--mono);
+    font-size: 10px;
+  }
+
+  .diff-easy { color: var(--success); }
+  .diff-medium { color: #ffcc00; }
+  .diff-hard { color: var(--warn); }
+
+  /* ── AGENT CONSOLE ── */
+  .console {
+    background: #050a0e;
+    border-radius: 10px;
+    padding: 16px;
+    height: 260px;
+    overflow-y: auto;
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.7;
+    margin-bottom: 16px;
+    border: 1px solid var(--border);
+  }
+
+  .console::-webkit-scrollbar { width: 4px; }
+  .console::-webkit-scrollbar-track { background: transparent; }
+  .console::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .log-start { color: var(--accent); }
+  .log-step  { color: #88ccff; }
+  .log-end   { color: var(--success); }
+  .log-warn  { color: var(--warn); }
+  .log-dim   { color: var(--muted); }
+
+  /* ── CONTROLS ── */
+  .controls {
+    display: flex;
+    gap: 10px;
+  }
+
+  .btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    border: none;
+    transition: all 0.15s;
+    letter-spacing: 1px;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #000;
+    flex: 1;
+  }
+  .btn-primary:hover { background: #33ddff; transform: translateY(-1px); }
+  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+  .btn-secondary {
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn-secondary:hover { border-color: var(--muted); }
+
+  /* ── REWARD DISPLAY ── */
+  .reward-track {
+    margin-bottom: 20px;
+  }
+
+  .reward-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 8px;
+  }
+
+  .reward-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 1px;
+  }
+
+  .reward-value {
+    font-family: var(--mono);
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--accent);
+  }
+
+  .reward-bar-bg {
+    height: 6px;
+    background: var(--surface2);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .reward-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent2), var(--accent));
+    border-radius: 3px;
+    transition: width 0.6s ease;
+    width: 0%;
+  }
+
+  /* ── STEP LIST ── */
+  .step-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 280px;
+    overflow-y: auto;
+  }
+
+  .step-list::-webkit-scrollbar { width: 3px; }
+  .step-list::-webkit-scrollbar-thumb { background: var(--border); }
+
+  .step-item {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    animation: slideIn 0.3s ease;
+  }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateX(-8px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+
+  .step-num {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    min-width: 28px;
+  }
+
+  .step-action {
+    flex: 1;
+    font-size: 12px;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .step-reward {
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 700;
+    min-width: 40px;
+    text-align: right;
+  }
+
+  .step-reward.pos { color: var(--success); }
+  .step-reward.zero { color: var(--muted); }
+  .step-reward.neg { color: var(--warn); }
+
+  /* ── BOTTOM ROW ── */
+  .bottom-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 40px;
+  }
+
+  .data-source {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .data-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    background: rgba(0,212,255,0.08);
+    border: 1px solid rgba(0,212,255,0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    flex-shrink: 0;
+  }
+
+  .data-name {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 2px;
+  }
+
+  .data-desc {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+  }
+
+  /* ── ENDPOINT PILLS ── */
+  .endpoints {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+  }
+
+  .endpoint-pill {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 100px;
+    padding: 4px 12px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .endpoint-pill:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .method {
+    color: var(--accent2);
+    margin-right: 4px;
+  }
+
+  /* ── FOOTER ── */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 20px 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .footer-text {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  /* ── LOADING SPINNER ── */
+  .spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(0,212,255,0.2);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    display: none;
+  }
+  .spinner.active { display: block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── OBSERVATION BOX ── */
+  .obs-box {
+    background: #050a0e;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: #88aacc;
+    line-height: 1.8;
+    margin-top: 12px;
+    max-height: 120px;
+    overflow-y: auto;
+    display: none;
+  }
+
+  .obs-box.visible { display: block; }
+
+  @media (max-width: 900px) {
+    .main-grid { grid-template-columns: 1fr; }
+    .stats-row { grid-template-columns: repeat(2, 1fr); }
+    .bottom-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- HEADER -->
+  <header>
+    <div class="logo">
+      <span class="logo-name">CHRONOSTASIS</span>
+      <span class="logo-tag">OpenEnv · Brahmaputra Flood Intelligence</span>
+    </div>
+    <div class="status-badge">
+      <div class="status-dot" id="statusDot"></div>
+      <span id="statusText">Connecting...</span>
+    </div>
+  </header>
+
+  <!-- STATS ROW -->
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-label">Model Accuracy</div>
+      <div class="stat-value">92.39<span style="font-size:16px;color:var(--muted)">%</span></div>
+      <div class="stat-sub">SAR vs risk model</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Peak Flood Year</div>
+      <div class="stat-value">2022</div>
+      <div class="stat-sub">4,812 km² inundated</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Chronic Zones</div>
+      <div class="stat-value">1,247<span style="font-size:16px;color:var(--muted)">km²</span></div>
+      <div class="stat-sub">Flooded all 3 years</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Tasks Available</div>
+      <div class="stat-value">3</div>
+      <div class="stat-sub">Easy → Medium → Hard</div>
+    </div>
+  </div>
+
+  <!-- MAIN GRID -->
+  <div class="main-grid">
+
+    <!-- LEFT: Agent Console -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Agent Console</span>
+        <div class="spinner" id="spinner"></div>
+      </div>
+      <div class="panel-body">
+
+        <!-- Task tabs -->
+        <div class="task-tabs">
+          <div class="task-tab active" onclick="selectTask('flood_year_comparison', this)">
+            <div class="task-tab-name">Year Comparison</div>
+            <div class="task-tab-diff diff-easy">EASY</div>
+          </div>
+          <div class="task-tab" onclick="selectTask('district_inundation_report', this)">
+            <div class="task-tab-name">District Report</div>
+            <div class="task-tab-diff diff-medium">MEDIUM</div>
+          </div>
+          <div class="task-tab" onclick="selectTask('flood_risk_forecast', this)">
+            <div class="task-tab-name">Risk Forecast</div>
+            <div class="task-tab-diff diff-hard">HARD</div>
+          </div>
+        </div>
+
+        <!-- Console log -->
+        <div class="console" id="console">
+          <div class="log-dim">// Chronostasis OpenEnv ready</div>
+          <div class="log-dim">// Select a task and click RUN EPISODE</div>
+          <div class="log-dim">// ─────────────────────────────────</div>
+        </div>
+
+        <!-- Observation -->
+        <div class="obs-box" id="obsBox"></div>
+
+        <!-- Controls -->
+        <div class="controls" style="margin-top:12px">
+          <button class="btn btn-secondary" onclick="resetEpisode()" id="resetBtn">RESET</button>
+          <button class="btn btn-primary" onclick="runEpisode()" id="runBtn">▶ RUN EPISODE</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: Steps + Reward -->
+    <div style="display:flex;flex-direction:column;gap:16px;">
+
+      <!-- Reward -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">Episode Score</span>
+          <span id="stepCounter" style="font-family:var(--mono);font-size:11px;color:var(--muted)">0 / 0 steps</span>
+        </div>
+        <div class="panel-body">
+          <div class="reward-track">
+            <div class="reward-header">
+              <span class="reward-label">TOTAL REWARD</span>
+              <span class="reward-value" id="totalReward">0.000</span>
+            </div>
+            <div class="reward-bar-bg">
+              <div class="reward-bar-fill" id="rewardBar"></div>
+            </div>
+          </div>
+          <div class="reward-track">
+            <div class="reward-header">
+              <span class="reward-label">LAST STEP</span>
+              <span style="font-family:var(--mono);font-size:16px;color:#88ccff" id="lastReward">—</span>
+            </div>
+          </div>
+          <div id="doneStatus" style="display:none;text-align:center;padding:8px;background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.3);border-radius:8px;font-family:var(--mono);font-size:12px;color:var(--success)">
+            ✓ EPISODE COMPLETE
+          </div>
+        </div>
+      </div>
+
+      <!-- Step history -->
+      <div class="panel" style="flex:1">
+        <div class="panel-header">
+          <span class="panel-title">Step History</span>
+          <span id="successBadge" style="display:none;font-family:var(--mono);font-size:10px;color:var(--success);letter-spacing:1px">SUCCESS</span>
+        </div>
+        <div class="panel-body">
+          <div class="step-list" id="stepList">
+            <div style="font-family:var(--mono);font-size:11px;color:var(--muted);text-align:center;padding:20px 0">
+              No steps yet
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- BOTTOM: Data sources -->
+  <div class="bottom-grid">
+    <div class="data-source">
+      <div class="data-icon">📡</div>
+      <div>
+        <div class="data-name">Sentinel-1 SAR</div>
+        <div class="data-desc">VV/VH · 2022–2024 monsoon</div>
+      </div>
+    </div>
+    <div class="data-source">
+      <div class="data-icon">🌧️</div>
+      <div>
+        <div class="data-name">CHIRPS Daily</div>
+        <div class="data-desc">Rainfall · June–September</div>
+      </div>
+    </div>
+    <div class="data-source">
+      <div class="data-icon">🏔️</div>
+      <div>
+        <div class="data-name">SRTM DEM</div>
+        <div class="data-desc">Elevation + slope terrain</div>
+      </div>
+    </div>
+    <div class="data-source">
+      <div class="data-icon">💧</div>
+      <div>
+        <div class="data-name">HydroSHEDS</div>
+        <div class="data-desc">Flow accumulation 15-arc</div>
+      </div>
+    </div>
+    <div class="data-source">
+      <div class="data-icon">🛰️</div>
+      <div>
+        <div class="data-name">Landsat 8 NDWI</div>
+        <div class="data-desc">Permanent water mask</div>
+      </div>
+    </div>
+    <div class="data-source">
+      <div class="data-icon">👥</div>
+      <div>
+        <div class="data-name">WorldPop + FAO GAUL</div>
+        <div class="data-desc">Population · District bounds</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- API ENDPOINTS -->
+  <div class="panel" style="margin-bottom:40px">
+    <div class="panel-header">
+      <span class="panel-title">API Endpoints</span>
+      <span style="font-family:var(--mono);font-size:11px;color:var(--muted)" id="spaceUrl"></span>
+    </div>
+    <div class="panel-body">
+      <div class="endpoints">
+        <div class="endpoint-pill" onclick="testEndpoint('/reset','POST')"><span class="method">POST</span>/reset</div>
+        <div class="endpoint-pill" onclick="testEndpoint('/step','POST')"><span class="method">POST</span>/step</div>
+        <div class="endpoint-pill" onclick="testEndpoint('/state','GET')"><span class="method">GET</span>/state</div>
+        <div class="endpoint-pill" onclick="testEndpoint('/tasks','GET')"><span class="method">GET</span>/tasks</div>
+        <div class="endpoint-pill" onclick="testEndpoint('/health','GET')"><span class="method">GET</span>/health</div>
+      </div>
+      <div class="obs-box visible" id="apiResult" style="margin-top:12px">Click an endpoint to test it live</div>
+    </div>
+  </div>
+
+  <footer>
+    <div class="footer-text">CHRONOSTASIS · Brahmaputra Valley Flood Intelligence · OpenEnv Round 1</div>
+    <div class="footer-text">LunaAmagi · 2026</div>
+  </footer>
+
+</div>
+
+<script>
+  const BASE = window.location.origin;
+  let currentTask = 'flood_year_comparison';
+  let episodeActive = false;
+  let totalReward = 0;
+  let stepCount = 0;
+  let maxSteps = 6;
+
+  // ── Check health on load ──
+  async function checkHealth() {
+    try {
+      const r = await fetch(BASE + '/health');
+      const data = await r.json();
+      document.getElementById('statusDot').style.background = 'var(--success)';
+      document.getElementById('statusText').textContent = 'Running · GEE ' + (data.gee_available ? 'Live' : 'Mock');
+      document.getElementById('spaceUrl').textContent = BASE;
+    } catch(e) {
+      document.getElementById('statusDot').style.background = 'var(--warn)';
+      document.getElementById('statusText').textContent = 'Offline';
+    }
+  }
+
+  function selectTask(taskId, el) {
+    currentTask = taskId;
+    document.querySelectorAll('.task-tab').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    log('dim', `// Task selected: ${taskId}`);
+  }
+
+  function log(type, text) {
+    const console = document.getElementById('console');
+    const div = document.createElement('div');
+    div.className = 'log-' + type;
+    div.textContent = text;
+    console.appendChild(div);
+    console.scrollTop = console.scrollHeight;
+  }
+
+  async function resetEpisode() {
+    episodeActive = false;
+    totalReward = 0;
+    stepCount = 0;
+    document.getElementById('totalReward').textContent = '0.000';
+    document.getElementById('rewardBar').style.width = '0%';
+    document.getElementById('lastReward').textContent = '—';
+    document.getElementById('stepList').innerHTML = '<div style="font-family:var(--mono);font-size:11px;color:var(--muted);text-align:center;padding:20px 0">No steps yet</div>';
+    document.getElementById('doneStatus').style.display = 'none';
+    document.getElementById('successBadge').style.display = 'none';
+    document.getElementById('stepCounter').textContent = '0 / 0 steps';
+    document.getElementById('obsBox').classList.remove('visible');
+    document.getElementById('console').innerHTML =
+      '<div class="log-dim">// Episode reset</div>';
+    try {
+      const r = await fetch(BASE + '/reset', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({task_id: currentTask})
+      });
+      const data = await r.json();
+      maxSteps = data.max_steps;
+      document.getElementById('stepCounter').textContent = `0 / ${maxSteps} steps`;
+      log('start', `[START] task=${data.task_id} env=chronostasis`);
+      log('dim', `// ${data.task_description.substring(0,80)}...`);
+      showObs(data);
+    } catch(e) {
+      log('warn', `[ERROR] ${e.message}`);
+    }
+  }
+
+  async function runEpisode() {
+    document.getElementById('runBtn').disabled = true;
+    document.getElementById('spinner').classList.add('active');
+
+    await resetEpisode();
+    episodeActive = true;
+    const rewards = [];
+
+    // Simulate agent steps with canned intelligent responses per task
+    const responses = getTaskResponses(currentTask);
+
+    for (let i = 0; i < responses.length; i++) {
+      if (!episodeActive) break;
+      await sleep(800);
+
+      const action = responses[i];
+      log('dim', `> ${action.substring(0, 70)}${action.length > 70 ? '...' : ''}`);
+
+      try {
+        const r = await fetch(BASE + '/step', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({message: action})
+        });
+        const data = await r.json();
+        stepCount++;
+        const reward = data.reward;
+        rewards.push(reward);
+        totalReward += reward;
+
+        const done = data.done;
+        const error = data.last_action_error || 'null';
+
+        log('step', `[STEP] step=${stepCount} reward=${reward.toFixed(2)} done=${done} error=${error}`);
+
+        updateReward(totalReward, reward, stepCount, maxSteps);
+        addStep(stepCount, action, reward);
+        showObs(data.observation);
+
+        if (done) {
+          await sleep(400);
+          const score = Math.min(totalReward, 1.0);
+          log('end', `[END] success=${score >= 0.5} steps=${stepCount} score=${score.toFixed(3)} rewards=${rewards.map(r=>r.toFixed(2)).join(',')}`);
+          document.getElementById('doneStatus').style.display = 'block';
+          if (score >= 0.5) document.getElementById('successBadge').style.display = 'block';
+          break;
+        }
+      } catch(e) {
+        log('warn', `[ERROR] ${e.message}`);
+        break;
+      }
+    }
+
+    document.getElementById('runBtn').disabled = false;
+    document.getElementById('spinner').classList.remove('active');
+  }
+
+  function getTaskResponses(taskId) {
+    const responses = {
+      flood_year_comparison: [
+        "Running SAR flood detection for all three years using Sentinel-1 VV backscatter analysis.",
+        "2022 monsoon SAR data shows flood extent of 4812.3 km². 2023 shows 3601.7 km². 2024 shows 4101.2 km². The year 2022 had the largest flood extent — the highest and most severe inundation across all three years.",
+        "The 2022 flooding was driven by above-average CHIRPS rainfall exceeding 1500mm in July, combined with high flow accumulation in the lower Brahmaputra floodplain. DEM analysis shows low-elevation zones below 60m were most affected. Slope less than 3 degrees allowed water to pool extensively."
+      ],
+      district_inundation_report: [
+        "Analysing flood frequency raster across all 3 years to identify chronically inundated zones.",
+        "Districts flooded all 3 years: Morigaon, Dhubri, Barpeta show the highest frequency. Also identified Goalpara and Kamrup as chronically affected.",
+        "Total chronically inundated area across all 3 years: approximately 1247.6 km². This represents zones where SAR backscatter dropped below -16dB in every monsoon season.",
+        "Population estimate using WorldPop grid overlaid with chronic flood zones: approximately 2,400,000 people affected in these districts annually."
+      ],
+      flood_risk_forecast: [
+        "Retrieving accuracy metrics from the multi-factor risk model validation.",
+        "Model accuracy is 92.39%. Precision 89.2%, Recall 88.7%, F1 score 0.889. High risk zones cover 3218.4 km², moderate risk 5901.2 km², low risk 8240.1 km².",
+        "Based on 2022 as the worst-case reference benchmark and SAR flood history, the lower Brahmaputra floodplain and Dhubri district riverbank are at highest risk.",
+        "CHIRPS rainfall trends show 2022 peak of 1500mm. The Barpeta wetland belt and Morigaon char lands are also identified as critical high-risk zones for 2025 monsoon season.",
+        "Forecast for 2025: High risk zones in lower Brahmaputra floodplain likely to see similar or greater inundation if pre-monsoon rainfall follows 2022 pattern. Recommend early warning deployment in Dhubri and Morigaon by May 2025."
+      ]
+    };
+    return responses[taskId] || responses.flood_year_comparison;
+  }
+
+  function updateReward(total, last, step, max) {
+    document.getElementById('totalReward').textContent = Math.min(total, 1).toFixed(3);
+    document.getElementById('rewardBar').style.width = (Math.min(total, 1) * 100) + '%';
+    document.getElementById('lastReward').textContent = (last >= 0 ? '+' : '') + last.toFixed(2);
+    document.getElementById('stepCounter').textContent = `${step} / ${max} steps`;
+  }
+
+  function addStep(num, action, reward) {
+    const list = document.getElementById('stepList');
+    if (num === 1) list.innerHTML = '';
+    const cls = reward > 0 ? 'pos' : reward < 0 ? 'neg' : 'zero';
+    const div = document.createElement('div');
+    div.className = 'step-item';
+    div.innerHTML = `
+      <span class="step-num">S${num}</span>
+      <span class="step-action">${action.substring(0, 60)}${action.length > 60 ? '...' : ''}</span>
+      <span class="step-reward ${cls}">${reward >= 0 ? '+' : ''}${reward.toFixed(2)}</span>
+    `;
+    list.appendChild(div);
+    list.scrollTop = list.scrollHeight;
+  }
+
+  function showObs(obs) {
+    const box = document.getElementById('obsBox');
+    box.classList.add('visible');
+    box.textContent = obs.last_action_result || obs.task_description?.substring(0, 120) + '...';
+  }
+
+  async function testEndpoint(path, method) {
+    const result = document.getElementById('apiResult');
+    result.textContent = 'Fetching...';
+    try {
+      const opts = { method, headers: {'Content-Type':'application/json'} };
+      if (method === 'POST') opts.body = JSON.stringify({});
+      const r = await fetch(BASE + path, opts);
+      const data = await r.json();
+      result.textContent = JSON.stringify(data, null, 2).substring(0, 400) + '...';
+    } catch(e) {
+      result.textContent = 'Error: ' + e.message;
+    }
+  }
+
+  function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+  checkHealth();
+</script>
+</body>
+</html>

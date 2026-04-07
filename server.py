@@ -27,6 +27,8 @@ from typing import Any, Dict, List, Optional
 
 import ee
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -41,10 +43,8 @@ def init_gee():
     sa_json = os.getenv("GEE_SERVICE_ACCOUNT_JSON")
     try:
         if sa_json:
-            # Pass raw string directly — ee handles parsing internally
             credentials = ee.ServiceAccountCredentials(
-                email=None,
-                key_data=sa_json  # raw string, no json.loads()
+                email=None, key_data=json.loads(sa_json)
             )
             ee.Initialize(credentials, project=GEE_PROJECT)
         else:
@@ -53,6 +53,7 @@ def init_gee():
     except Exception as exc:
         print(f"[WARN] GEE init failed: {exc} — running in mock mode")
         return False
+
 GEE_AVAILABLE = init_gee()
 
 
@@ -158,6 +159,22 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+
+# ──────────────────────────────────────────────
+# STATIC UI + ROOT ROUTE
+# ──────────────────────────────────────────────
+import os as _os
+_static_dir = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "static")
+if _os.path.isdir(_static_dir):
+    app.mount("/static", StaticFiles(directory=_static_dir), name="static")
+
+@app.get("/", include_in_schema=False)
+async def root():
+    idx = _os.path.join(_static_dir, "index.html")
+    if _os.path.isfile(idx):
+        return FileResponse(idx)
+    return {"name": "Chronostasis", "status": "running", "docs": "/docs"}
 
 # ──────────────────────────────────────────────
 # ENDPOINTS
