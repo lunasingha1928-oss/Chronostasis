@@ -424,7 +424,7 @@ def run_agent_step(
 
         # Process tool calls
         for tc in message.tool_calls:
-            args        = json.loads(tc.function.arguments or "{}")
+            args        = tc.function.arguments if isinstance(tc.function.arguments, dict) else json.loads(tc.function.arguments)   
             tool_result = dispatch_tool(tc.function.name, args)
             print(f"[DEBUG] tool={tc.function.name} args={args} result={tool_result[:120]}", flush=True)
             messages.append({
