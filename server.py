@@ -9,6 +9,7 @@ import json
 import os
 import time
 import uuid
+import asyncio
 from typing import Any, Dict, List, Optional
 
 import ee
@@ -289,6 +290,7 @@ async def agent_step():
     ep = _current_episode
     prompt = build_agent_prompt(ep)
 
+    await asyncio.sleep(5)  # respect Gemini free tier rate limit
     try:
         response = model.generate_content(
             prompt,
