@@ -25,7 +25,7 @@ from tasks import TASK_REGISTRY, REGIONS, DEFAULT_REGION, BaseTask
 # CONFIG
 # ──────────────────────────────────────────────
 GEE_PROJECT   = os.getenv("GEE_PROJECT", "your-gee-project-id")
-GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", "")
+GROQ_API_KEY  = os.getenv("GROQ_API_KEY", "")
 AGENT_MODEL   = "gemini-1.5-flash"
 
 
