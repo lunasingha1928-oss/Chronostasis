@@ -4,8 +4,8 @@ WORKDIR /app
 
 # System deps
 RUN apt-get update && apt-get install -y \
-    curl git gdal-bin libgdal-dev gcc \
-    && rm -rf /var/lib/apt/lists/*
+  curl git gdal-bin libgdal-dev gcc \
+  && rm -rf /var/lib/apt/lists/*
 
 # Python deps
 COPY requirements.txt .
@@ -13,7 +13,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy project files
 COPY inference.py .
-COPY my_env_v4.py .
 
 # Environment defaults (override at runtime)
 ENV API_BASE_URL="https://router.huggingface.co/v1"
