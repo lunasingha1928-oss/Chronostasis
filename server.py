@@ -41,13 +41,10 @@ def init_gee():
     sa_json = os.getenv("GEE_SERVICE_ACCOUNT_JSON")
     try:
         if sa_json:
-            if isinstance(sa_json, str):
-                key_data = json.loads(sa_json)
-            else:
-                key_data = sa_json
+            # Pass raw string directly — ee handles parsing internally
             credentials = ee.ServiceAccountCredentials(
-                email=key_data.get("client_email"),
-                key_data=key_data
+                email=None,
+                key_data=sa_json  # raw string, no json.loads()
             )
             ee.Initialize(credentials, project=GEE_PROJECT)
         else:
