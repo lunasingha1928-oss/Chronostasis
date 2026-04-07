@@ -1,3 +1,16 @@
+---
+title: Chronostasis
+emoji: 🌊
+colorFrom: blue
+colorTo: green
+sdk: docker
+app_port: 7860
+tags:
+  - openenv
+  - flood-detection
+  - remote-sensing
+pinned: false
+---
 # Chronostasis — Brahmaputra Valley Flood Intelligence
 
 **OpenEnv Environment | Real-World GIS + Remote Sensing**
