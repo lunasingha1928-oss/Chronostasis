@@ -1,0 +1,205 @@
+# openenv.yaml — Chronostasis OpenEnv Specification
+# ====================================================
+# Validated by: openenv validate
+# Submit to:    HuggingFace Spaces tagged with 'openenv'
+
+name: chronostasis
+version: "1.0.0"
+description: >
+  Brahmaputra Valley Flood Intelligence Environment.
+  An AI agent learns to analyse multi-year Sentinel-1 SAR satellite data,
+  CHIRPS rainfall, and terrain features to detect, quantify, and forecast
+  monsoon flood risk in Assam, India (2022–2024).
+
+domain: geospatial-analysis
+real_world: true
+tags:
+  - flood-detection
+  - remote-sensing
+  - SAR
+  - climate
+  - India
+  - openenv
+
+# ──────────────────────────────────────────────
+# Endpoints
+# ──────────────────────────────────────────────
+endpoints:
+  reset:
+    method: POST
+    path: /reset
+    body:
+      task_id:
+        type: string
+        required: false
+        default: flood_year_comparison
+        enum:
+          - flood_year_comparison
+          - district_inundation_report
+          - flood_risk_forecast
+  step:
+    method: POST
+    path: /step
+    body:
+      message:
+        type: string
+        required: true
+        description: Agent's analysis, query, or answer
+  state:
+    method: GET
+    path: /state
+
+# ──────────────────────────────────────────────
+# Action space
+# ──────────────────────────────────────────────
+action_space:
+  type: text
+  description: >
+    Free-form natural language string. The agent should include
+    specific numeric values (flood areas in km², accuracy metrics,
+    district names, geographic zone names) to maximise reward.
+  max_length: 4096
+
+# ──────────────────────────────────────────────
+# Observation space
+# ──────────────────────────────────────────────
+observation_space:
+  type: object
+  fields:
+    task_id:
+      type: string
+      description: Active task identifier
+    task_description:
+      type: string
+      description: Natural language description of the objective
+    step:
+      type: integer
+      description: Current step number (0 = just reset)
+    max_steps:
+      type: integer
+      description: Maximum allowed steps for this episode
+    available_data:
+      type: array
+      items: string
+      description: Named data sources the agent can query via tools
+    last_action_result:
+      type: string
+      nullable: true
+      description: Grader feedback on the previous action
+    last_action_error:
+      type: string
+      nullable: true
+      description: Error message if last action failed
+    context:
+      type: object
+      description: Task-specific context (hints, known statistics, parameters)
+    echoed_message:
+      type: string
+      description: Echo of the last agent message (OpenEnv compatibility)
+
+# ──────────────────────────────────────────────
+# Reward
+# ──────────────────────────────────────────────
+reward:
+  range: [0.0, 1.0]
+  type: float
+  description: >
+    Per-step partial reward based on evidence of correct analysis.
+    Rewards accumulate across steps. Graders are deterministic and
+    reproducible. Vague or unsupported claims receive 0 or negative reward.
+  partial_progress: true
+
+# ──────────────────────────────────────────────
+# Tasks
+# ──────────────────────────────────────────────
+tasks:
+  - id: flood_year_comparison
+    name: Flood Year Comparison
+    difficulty: easy
+    max_steps: 6
+    description: >
+      Identify which monsoon year (2022–2024) had the largest SAR-detected
+      flood extent and provide area figures for all three years.
+    grading:
+      - criterion: Correctly identifies 2022 as peak year
+        weight: 0.40
+        deterministic: true
+      - criterion: Reports area figures for all 3 years within 15% tolerance
+        weight: 0.35
+        deterministic: true
+      - criterion: Cites at least 2 causal factors (rainfall, DEM, flow)
+        weight: 0.25
+        deterministic: true
+
+  - id: district_inundation_report
+    name: Chronic District Inundation Report
+    difficulty: medium
+    max_steps: 8
+    description: >
+      Identify Assam districts chronically inundated across all 3 years,
+      report the total area in km², and estimate the affected population.
+    grading:
+      - criterion: Named districts (up to 5 × 0.10 each)
+        weight: 0.50
+        deterministic: true
+      - criterion: Chronic flood area within 20% of ground truth
+        weight: 0.25
+        deterministic: true
+      - criterion: Population estimate within 30% of ground truth
+        weight: 0.25
+        deterministic: true
+
+  - id: flood_risk_forecast
+    name: Next-Season Flood Risk Forecast
+    difficulty: hard
+    max_steps: 10
+    description: >
+      Synthesise SAR history, rainfall trends, and the multi-factor risk model
+      to forecast the highest-risk zones for the 2025 monsoon season.
+    grading:
+      - criterion: Cites model accuracy metrics (92.39%)
+        weight: 0.15
+        deterministic: true
+      - criterion: Cites risk zone area statistics
+        weight: 0.20
+        deterministic: true
+      - criterion: Names 2+ specific high-risk geographic zones
+        weight: 0.20
+        deterministic: true
+      - criterion: Cites rainfall trend data
+        weight: 0.15
+        deterministic: true
+      - criterion: Uses 2022 as reference benchmark
+        weight: 0.10
+        deterministic: true
+      - criterion: Forward-looking 2025 forecast
+        weight: 0.05
+        deterministic: true
+      - criterion: Penalty for vague unsupported claims
+        weight: -0.10
+        deterministic: true
+
+# ──────────────────────────────────────────────
+# Baseline scores (from inference.py)
+# ──────────────────────────────────────────────
+baseline:
+  model: Qwen/Qwen2.5-72B-Instruct
+  scores:
+    flood_year_comparison:     0.850
+    district_inundation_report: 0.620
+    flood_risk_forecast:       0.710
+  notes: >
+    Scores achieved by the baseline inference.py using tool-augmented
+    chain-of-thought with GEE SAR data retrieval.
+
+# ──────────────────────────────────────────────
+# Infrastructure
+# ──────────────────────────────────────────────
+infrastructure:
+  runtime: docker
+  base_image: python:3.11-slim
+  port: 7860
+  health_check: GET /health
+  max_runtime_minutes: 20
+  memory_gb: 8
+  vcpus: 2
