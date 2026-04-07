@@ -9,7 +9,6 @@ import json
 import os
 import time
 import uuid
-import asyncio
 from typing import Any, Dict, List, Optional
 
 import ee
@@ -18,7 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
-import google.generativeai as genai
+from openai import OpenAI
 
 from tasks import TASK_REGISTRY, REGIONS, DEFAULT_REGION, BaseTask
 
@@ -27,7 +26,7 @@ from tasks import TASK_REGISTRY, REGIONS, DEFAULT_REGION, BaseTask
 # ──────────────────────────────────────────────
 GEE_PROJECT   = os.getenv("GEE_PROJECT", "your-gee-project-id")
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", "")
-AGENT_MODEL   = "gemini-2.0-flash"
+AGENT_MODEL   = "gemini-1.5-flash"
 
 
 def init_gee():
@@ -134,13 +133,12 @@ _current_episode: Optional[EpisodeState] = None
 # AGENT LLM CLIENT
 # ──────────────────────────────────────────────
 
-def get_gemini_model():
-    if not GOOGLE_API_KEY:
+def get_llm_client():
+    if not GROQ_API_KEY:
         return None
-    genai.configure(api_key=GOOGLE_API_KEY)
-    return genai.GenerativeModel(
-        model_name=AGENT_MODEL,
-        system_instruction="You are a precise GIS flood analysis agent. Always include specific numbers, district names, and km2 figures in your responses."
+    return OpenAI(
+        base_url="https://api.groq.com/openai/v1",
+        api_key=GROQ_API_KEY
     )
 
 
@@ -283,25 +281,26 @@ async def agent_step():
     if _current_episode.done:
         raise HTTPException(400, "Episode is done.")
 
-    model = get_gemini_model()
-    if not model:
-        raise HTTPException(503, "No GOOGLE_API_KEY configured in Space secrets.")
+    client = get_llm_client()
+    if not client:
+        raise HTTPException(503, "No GROQ_API_KEY configured in Space secrets.")
 
     ep = _current_episode
     prompt = build_agent_prompt(ep)
 
-    await asyncio.sleep(5)  # respect Gemini free tier rate limit
     try:
-        response = model.generate_content(
-            prompt,
-            generation_config=genai.GenerationConfig(
-                max_output_tokens=400,
-                temperature=0.3,
-            )
+        completion = client.chat.completions.create(
+            model=AGENT_MODEL,
+            messages=[
+                {"role": "system", "content": "You are a precise GIS flood analysis agent. Always include specific numbers, district names, and km2 figures in your responses."},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=400,
+            temperature=0.3,
         )
-        message = (response.text or "").strip()
+        message = (completion.choices[0].message.content or "").strip()
     except Exception as exc:
-        raise HTTPException(502, f"Gemini call failed: {type(exc).__name__}: {str(exc)[:200]}")
+        raise HTTPException(502, f"Groq call failed: {type(exc).__name__}: {str(exc)[:200]}")
 
     # Now step the environment with the LLM response
     ep.step += 1
@@ -351,7 +350,7 @@ async def health():
     return {
         "status": "ok",
         "gee_available": GEE_AVAILABLE,
-        "llm_configured": bool(GOOGLE_API_KEY),
+        "llm_configured": bool(GROQ_API_KEY),
         "agent_model": AGENT_MODEL,
         "regions": list(REGIONS.keys()),
         "tasks": list(TASK_REGISTRY.keys()),
