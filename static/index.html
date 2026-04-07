@@ -822,12 +822,7 @@
               });
             }
             return r.json().then(function (data) {
-              if (!r.ok)
-                return {
-                  ok: false,
-                  data: null,
-                  err: (data && data.detail) || "Error " + r.status,
-                };
+              if (!r.ok) return { ok: false, data: null, err: (data && data.detail ? (typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail)) : 'Error ' + r.status) };
               return { ok: true, data: data, err: null };
             });
           })
