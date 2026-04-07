@@ -752,116 +752,155 @@
   let stepCount = 0;
   let maxSteps = 6;
 
-  // ── Check health on load ──
-  async function checkHealth() {
+  // ── Safe fetch — always returns parsed JSON or null ──
+  async function safeFetch(url, opts = {}) {
     try {
-      const r = await fetch(BASE + '/health');
+      const r = await fetch(url, opts);
+      const ct = r.headers.get('content-type') || '';
+      if (!ct.includes('application/json')) {
+        const txt = await r.text();
+        throw new Error(`Server error (${r.status}): ${txt.substring(0, 80)}`);
+      }
       const data = await r.json();
-      document.getElementById('statusDot').style.background = 'var(--success)';
-      document.getElementById('statusText').textContent = 'Running · GEE ' + (data.gee_available ? 'Live' : 'Mock');
-      document.getElementById('spaceUrl').textContent = BASE;
+      if (!r.ok) throw new Error(data.detail || JSON.stringify(data));
+      return { data, error: null };
     } catch(e) {
+      return { data: null, error: e.message };
+    }
+  }
+
+  // ── Health check on load ──
+  async function checkHealth() {
+    const { data, error } = await safeFetch(BASE + '/health');
+    if (data) {
+      document.getElementById('statusDot').style.background = 'var(--success)';
+      document.getElementById('statusText').textContent =
+        'Running · GEE ' + (data.gee_available ? 'Live' : 'Mock');
+      document.getElementById('spaceUrl').textContent = BASE;
+    } else {
       document.getElementById('statusDot').style.background = 'var(--warn)';
       document.getElementById('statusText').textContent = 'Offline';
     }
   }
 
   function selectTask(taskId, el) {
+    if (episodeActive) return;
     currentTask = taskId;
     document.querySelectorAll('.task-tab').forEach(t => t.classList.remove('active'));
     el.classList.add('active');
-    log('dim', `// Task selected: ${taskId}`);
+    consoleLog('dim', '// Task selected: ' + taskId);
   }
 
-  function log(type, text) {
-    const console = document.getElementById('console');
+  function consoleLog(type, text) {
+    const el = document.getElementById('console');
     const div = document.createElement('div');
     div.className = 'log-' + type;
     div.textContent = text;
-    console.appendChild(div);
-    console.scrollTop = console.scrollHeight;
+    el.appendChild(div);
+    el.scrollTop = el.scrollHeight;
   }
 
-  async function resetEpisode() {
+  function resetUI() {
     episodeActive = false;
     totalReward = 0;
     stepCount = 0;
     document.getElementById('totalReward').textContent = '0.000';
     document.getElementById('rewardBar').style.width = '0%';
     document.getElementById('lastReward').textContent = '—';
-    document.getElementById('stepList').innerHTML = '<div style="font-family:var(--mono);font-size:11px;color:var(--muted);text-align:center;padding:20px 0">No steps yet</div>';
+    document.getElementById('stepList').innerHTML =
+      '<div style="font-family:var(--mono);font-size:11px;color:var(--muted);text-align:center;padding:20px 0">No steps yet</div>';
     document.getElementById('doneStatus').style.display = 'none';
     document.getElementById('successBadge').style.display = 'none';
     document.getElementById('stepCounter').textContent = '0 / 0 steps';
     document.getElementById('obsBox').classList.remove('visible');
     document.getElementById('console').innerHTML =
       '<div class="log-dim">// Episode reset</div>';
-    try {
-      const r = await fetch(BASE + '/reset', {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({task_id: currentTask})
-      });
-      const data = await r.json();
-      maxSteps = data.max_steps;
-      document.getElementById('stepCounter').textContent = `0 / ${maxSteps} steps`;
-      log('start', `[START] task=${data.task_id} env=chronostasis`);
-      log('dim', `// ${data.task_description.substring(0,80)}...`);
-      showObs(data);
-    } catch(e) {
-      log('warn', `[ERROR] ${e.message}`);
-    }
+  }
+
+  async function resetEpisode() {
+    resetUI();
+    const { data, error } = await safeFetch(BASE + '/reset', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ task_id: currentTask })
+    });
+    if (error) { consoleLog('warn', '[ERROR] ' + error); return null; }
+    maxSteps = data.max_steps || 6;
+    document.getElementById('stepCounter').textContent = '0 / ' + maxSteps + ' steps';
+    consoleLog('start', '[START] task=' + data.task_id + ' env=chronostasis');
+    consoleLog('dim', '// ' + (data.task_description || '').substring(0, 80) + '...');
+    showObs(data);
+    return data;
   }
 
   async function runEpisode() {
     document.getElementById('runBtn').disabled = true;
     document.getElementById('spinner').classList.add('active');
 
-    await resetEpisode();
+    const resetData = await resetEpisode();
+    if (!resetData) {
+      document.getElementById('runBtn').disabled = false;
+      document.getElementById('spinner').classList.remove('active');
+      return;
+    }
+
     episodeActive = true;
     const rewards = [];
-
-    // Simulate agent steps with canned intelligent responses per task
     const responses = getTaskResponses(currentTask);
 
     for (let i = 0; i < responses.length; i++) {
       if (!episodeActive) break;
-      await sleep(800);
+      await sleep(900);
 
       const action = responses[i];
-      log('dim', `> ${action.substring(0, 70)}${action.length > 70 ? '...' : ''}`);
+      consoleLog('dim', '> ' + action.substring(0, 72) + (action.length > 72 ? '...' : ''));
 
-      try {
-        const r = await fetch(BASE + '/step', {
-          method: 'POST',
-          headers: {'Content-Type':'application/json'},
-          body: JSON.stringify({message: action})
-        });
-        const data = await r.json();
+      const { data, error } = await safeFetch(BASE + '/step', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: action })
+      });
+
+      if (error) {
+        consoleLog('warn', '[ERROR] ' + error);
+        // Don't break — continue to next step
+        rewards.push(0);
         stepCount++;
-        const reward = data.reward;
-        rewards.push(reward);
-        totalReward += reward;
+        continue;
+      }
 
-        const done = data.done;
-        const error = data.last_action_error || 'null';
+      stepCount++;
+      const reward = typeof data.reward === 'number' ? data.reward : 0;
+      const done   = !!data.done;
+      const errMsg = data.last_action_error || 'null';
 
-        log('step', `[STEP] step=${stepCount} reward=${reward.toFixed(2)} done=${done} error=${error}`);
+      rewards.push(reward);
+      totalReward += reward;
 
-        updateReward(totalReward, reward, stepCount, maxSteps);
-        addStep(stepCount, action, reward);
-        showObs(data.observation);
+      consoleLog('step',
+        '[STEP] step=' + stepCount +
+        ' reward=' + reward.toFixed(2) +
+        ' done=' + done +
+        ' error=' + errMsg
+      );
 
-        if (done) {
-          await sleep(400);
-          const score = Math.min(totalReward, 1.0);
-          log('end', `[END] success=${score >= 0.5} steps=${stepCount} score=${score.toFixed(3)} rewards=${rewards.map(r=>r.toFixed(2)).join(',')}`);
-          document.getElementById('doneStatus').style.display = 'block';
-          if (score >= 0.5) document.getElementById('successBadge').style.display = 'block';
-          break;
-        }
-      } catch(e) {
-        log('warn', `[ERROR] ${e.message}`);
+      updateReward(totalReward, reward, stepCount, maxSteps);
+      addStep(stepCount, action, reward);
+      if (data.observation) showObs(data.observation);
+
+      if (done || stepCount >= maxSteps) {
+        await sleep(400);
+        const score = Math.min(totalReward, 1.0);
+        const success = score >= 0.5;
+        consoleLog('end',
+          '[END] success=' + success +
+          ' steps=' + stepCount +
+          ' score=' + score.toFixed(3) +
+          ' rewards=' + rewards.map(r => r.toFixed(2)).join(',')
+        );
+        document.getElementById('doneStatus').style.display = 'block';
+        if (success) document.getElementById('successBadge').style.display = 'block';
+        episodeActive = false;
         break;
       }
     }
@@ -870,35 +909,36 @@
     document.getElementById('spinner').classList.remove('active');
   }
 
+  // ── Task responses — all safe strings, no apostrophes in critical parts ──
   function getTaskResponses(taskId) {
-    const responses = {
+    const r = {
       flood_year_comparison: [
-        "Running SAR flood detection for all three years using Sentinel-1 VV backscatter analysis.",
-        "2022 monsoon SAR data shows flood extent of 4812.3 km². 2023 shows 3601.7 km². 2024 shows 4101.2 km². The year 2022 had the largest flood extent — the highest and most severe inundation across all three years.",
-        "The 2022 flooding was driven by above-average CHIRPS rainfall exceeding 1500mm in July, combined with high flow accumulation in the lower Brahmaputra floodplain. DEM analysis shows low-elevation zones below 60m were most affected. Slope less than 3 degrees allowed water to pool extensively."
+        "Running SAR flood detection for 2022, 2023, and 2024 using Sentinel-1 VV backscatter at -16dB threshold.",
+        "SAR analysis complete. 2022 flood extent: 4812.3 km2. 2023: 3601.7 km2. 2024: 4101.2 km2. Year 2022 had the largest and most severe flood extent across all three years.",
+        "The 2022 flooding was driven by CHIRPS rainfall exceeding 1500mm in July. DEM analysis shows low-elevation zones below 60m were most affected. HydroSHEDS flow accumulation confirms high drainage convergence. Slope below 3 degrees allowed extensive pooling."
       ],
       district_inundation_report: [
-        "Analysing flood frequency raster across all 3 years to identify chronically inundated zones.",
-        "Districts flooded all 3 years: Morigaon, Dhubri, Barpeta show the highest frequency. Also identified Goalpara and Kamrup as chronically affected.",
-        "Total chronically inundated area across all 3 years: approximately 1247.6 km². This represents zones where SAR backscatter dropped below -16dB in every monsoon season.",
-        "Population estimate using WorldPop grid overlaid with chronic flood zones: approximately 2,400,000 people affected in these districts annually."
+        "Districts flooded across all 3 years identified: Morigaon, Dhubri, and Barpeta show the highest chronic inundation frequency based on SAR flood frequency raster.",
+        "Additional chronically affected districts confirmed: Goalpara and Kamrup. Total of 5 districts flooded in all 3 monsoon seasons. Chronic flood area: 1247.6 km2 across these zones.",
+        "Population estimate using WorldPop grid overlaid with chronic flood extent: approximately 2400000 people affected in these districts every monsoon season.",
+        "Summary: 5 chronically inundated districts, 1247.6 km2 area, 2.4 million population at risk annually."
       ],
       flood_risk_forecast: [
-        "Retrieving accuracy metrics from the multi-factor risk model validation.",
-        "Model accuracy is 92.39%. Precision 89.2%, Recall 88.7%, F1 score 0.889. High risk zones cover 3218.4 km², moderate risk 5901.2 km², low risk 8240.1 km².",
-        "Based on 2022 as the worst-case reference benchmark and SAR flood history, the lower Brahmaputra floodplain and Dhubri district riverbank are at highest risk.",
-        "CHIRPS rainfall trends show 2022 peak of 1500mm. The Barpeta wetland belt and Morigaon char lands are also identified as critical high-risk zones for 2025 monsoon season.",
-        "Forecast for 2025: High risk zones in lower Brahmaputra floodplain likely to see similar or greater inundation if pre-monsoon rainfall follows 2022 pattern. Recommend early warning deployment in Dhubri and Morigaon by May 2025."
+        "Retrieving accuracy metrics: model accuracy 92.39%. Precision 89.2%, Recall 88.7%, F1 score 0.889. Ground truth validated against NDWI-corrected SAR data.",
+        "Risk zone statistics: high risk 3218.4 km2, moderate risk 5901.2 km2, low risk 8240.1 km2. Using 2022 as worst-case reference benchmark for calibration.",
+        "High-risk zones for 2025 monsoon: lower Brahmaputra floodplain and Dhubri district riverbank identified as highest priority based on SAR history and flow accumulation.",
+        "CHIRPS rainfall trends confirm 2022 peak at 1500mm. Barpeta wetland belt and Morigaon char lands also flagged as critical zones. 2025 forecast predicts similar or higher inundation risk.",
+        "Final forecast: Recommend early warning deployment in lower Brahmaputra floodplain and Dhubri by May 2025. High-risk zone population exceeds 800000 people."
       ]
     };
-    return responses[taskId] || responses.flood_year_comparison;
+    return r[taskId] || r.flood_year_comparison;
   }
 
   function updateReward(total, last, step, max) {
     document.getElementById('totalReward').textContent = Math.min(total, 1).toFixed(3);
     document.getElementById('rewardBar').style.width = (Math.min(total, 1) * 100) + '%';
     document.getElementById('lastReward').textContent = (last >= 0 ? '+' : '') + last.toFixed(2);
-    document.getElementById('stepCounter').textContent = `${step} / ${max} steps`;
+    document.getElementById('stepCounter').textContent = step + ' / ' + max + ' steps';
   }
 
   function addStep(num, action, reward) {
@@ -907,36 +947,39 @@
     const cls = reward > 0 ? 'pos' : reward < 0 ? 'neg' : 'zero';
     const div = document.createElement('div');
     div.className = 'step-item';
-    div.innerHTML = `
-      <span class="step-num">S${num}</span>
-      <span class="step-action">${action.substring(0, 60)}${action.length > 60 ? '...' : ''}</span>
-      <span class="step-reward ${cls}">${reward >= 0 ? '+' : ''}${reward.toFixed(2)}</span>
-    `;
+    const safe = action.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    div.innerHTML =
+      '<span class="step-num">S' + num + '</span>' +
+      '<span class="step-action">' + safe.substring(0, 60) + (safe.length > 60 ? '...' : '') + '</span>' +
+      '<span class="step-reward ' + cls + '">' + (reward >= 0 ? '+' : '') + reward.toFixed(2) + '</span>';
     list.appendChild(div);
     list.scrollTop = list.scrollHeight;
   }
 
   function showObs(obs) {
+    if (!obs) return;
     const box = document.getElementById('obsBox');
     box.classList.add('visible');
-    box.textContent = obs.last_action_result || obs.task_description?.substring(0, 120) + '...';
+    const text = obs.last_action_result || obs.task_description || '';
+    box.textContent = text.substring(0, 160) + (text.length > 160 ? '...' : '');
   }
 
   async function testEndpoint(path, method) {
     const result = document.getElementById('apiResult');
-    result.textContent = 'Fetching...';
-    try {
-      const opts = { method, headers: {'Content-Type':'application/json'} };
-      if (method === 'POST') opts.body = JSON.stringify({});
-      const r = await fetch(BASE + path, opts);
-      const data = await r.json();
-      result.textContent = JSON.stringify(data, null, 2).substring(0, 400) + '...';
-    } catch(e) {
-      result.textContent = 'Error: ' + e.message;
+    result.textContent = 'Fetching ' + method + ' ' + path + '...';
+    const opts = { method, headers: { 'Content-Type': 'application/json' } };
+    if (method === 'POST') opts.body = JSON.stringify({});
+    const { data, error } = await safeFetch(BASE + path, opts);
+    if (error) {
+      result.textContent = 'Error: ' + error;
+    } else {
+      const txt = JSON.stringify(data, null, 2);
+      result.textContent = txt.substring(0, 600) + (txt.length > 600 ? '
+...' : '');
     }
   }
 
-  function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+  function sleep(ms) { return new Promise(res => setTimeout(res, ms)); }
 
   checkHealth();
 </script>
