@@ -17,17 +17,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
-from openai import OpenAI
+import google.generativeai as genai
 
 from tasks import TASK_REGISTRY, REGIONS, DEFAULT_REGION, BaseTask
 
 # ──────────────────────────────────────────────
 # CONFIG
 # ──────────────────────────────────────────────
-GEE_PROJECT = os.getenv("GEE_PROJECT", "your-gee-project-id")
-HF_TOKEN    = os.getenv("HF_TOKEN", "")
-AGENT_MODEL = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct")
-AGENT_BASE  = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
+GEE_PROJECT   = os.getenv("GEE_PROJECT", "your-gee-project-id")
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", "")
+AGENT_MODEL   = "gemini-1.5-flash"
 
 
 def init_gee():
@@ -134,11 +133,14 @@ _current_episode: Optional[EpisodeState] = None
 # AGENT LLM CLIENT
 # ──────────────────────────────────────────────
 
-def get_llm_client() -> Optional[OpenAI]:
-    api_key = HF_TOKEN or os.getenv("OPENAI_API_KEY", "")
-    if not api_key:
+def get_gemini_model():
+    if not GOOGLE_API_KEY:
         return None
-    return OpenAI(base_url=AGENT_BASE, api_key=api_key)
+    genai.configure(api_key=GOOGLE_API_KEY)
+    return genai.GenerativeModel(
+        model_name=AGENT_MODEL,
+        system_instruction="You are a precise GIS flood analysis agent. Always include specific numbers, district names, and km2 figures in your responses."
+    )
 
 
 def build_agent_prompt(episode: EpisodeState) -> str:
@@ -280,26 +282,24 @@ async def agent_step():
     if _current_episode.done:
         raise HTTPException(400, "Episode is done.")
 
-    client = get_llm_client()
-    if not client:
-        raise HTTPException(503, "No LLM API key configured (HF_TOKEN or OPENAI_API_KEY).")
+    model = get_gemini_model()
+    if not model:
+        raise HTTPException(503, "No GOOGLE_API_KEY configured in Space secrets.")
 
     ep = _current_episode
     prompt = build_agent_prompt(ep)
 
     try:
-        completion = client.chat.completions.create(
-            model=AGENT_MODEL,
-            messages=[
-                {"role": "system", "content": "You are a precise GIS flood analysis agent. Always include specific numbers, district names, and km2 figures in your responses."},
-                {"role": "user", "content": prompt}
-            ],
-            max_tokens=400,
-            temperature=0.3,
+        response = model.generate_content(
+            prompt,
+            generation_config=genai.GenerationConfig(
+                max_output_tokens=400,
+                temperature=0.3,
+            )
         )
-        message = (completion.choices[0].message.content or "").strip()
+        message = (response.text or "").strip()
     except Exception as exc:
-        raise HTTPException(502, f"LLM call failed: {exc}")
+        raise HTTPException(502, f"Gemini call failed: {type(exc).__name__}: {str(exc)[:200]}")
 
     # Now step the environment with the LLM response
     ep.step += 1
@@ -349,7 +349,7 @@ async def health():
     return {
         "status": "ok",
         "gee_available": GEE_AVAILABLE,
-        "llm_configured": bool(HF_TOKEN or os.getenv("OPENAI_API_KEY")),
+        "llm_configured": bool(GOOGLE_API_KEY),
         "agent_model": AGENT_MODEL,
         "regions": list(REGIONS.keys()),
         "tasks": list(TASK_REGISTRY.keys()),
