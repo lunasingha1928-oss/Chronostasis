@@ -11,6 +11,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY server.py .
 COPY tasks.py .
+COPY renderer.py .
 COPY inference.py .
 COPY server/ ./server/
 COPY static/ ./static/
