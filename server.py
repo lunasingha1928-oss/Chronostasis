@@ -20,6 +20,7 @@ from pydantic import BaseModel, Field
 from openai import OpenAI
 
 from tasks import TASK_REGISTRY, REGIONS, DEFAULT_REGION, BaseTask
+from renderer import render_flood_report
 
 # ──────────────────────────────────────────────
 # CONFIG
@@ -407,6 +408,75 @@ async def list_tasks():
                               difficulty=t.difficulty, max_steps=t.max_steps,
                               region_id=DEFAULT_REGION))
     return tasks
+
+
+@app.get("/report")
+async def report():
+    """Returns full episode data for visual rendering."""
+    ep = _current_episode
+    region_id = ep.region_id if ep else DEFAULT_REGION
+    r = REGIONS[region_id]
+
+    return {
+        "region_id":    region_id,
+        "region_name":  r["name"],
+        "state":        r["state"],
+        "river":        r["river"],
+        "flood_areas":  {str(k): v for k, v in r["flood_areas"].items()},
+        "peak_year":    r["peak_year"],
+        "chronic_km2":  r["chronic_km2"],
+        "chronic_pop":  r["chronic_pop"],
+        "chronic_districts": r["chronic_districts"],
+        "high_risk_zones":   r["high_risk_zones"],
+        "accuracy_pct":      r["accuracy_pct"],
+        "risk_zones_km2":    r["risk_zones_km2"],
+        "peak_rainfall_mm":  r["peak_rainfall_mm"],
+        "episode": {
+            "task_id":      ep.task.task_id if ep else None,
+            "total_reward": ep.total_reward if ep else 0,
+            "steps":        ep.step if ep else 0,
+            "done":         ep.done if ep else False,
+            "history":      ep.history if ep else [],
+        } if ep else None,
+        "all_regions_summary": [
+            {
+                "id": rid,
+                "name": rv["name"],
+                "peak_year": rv["peak_year"],
+                "peak_flood_km2": rv["flood_areas"][rv["peak_year"]],
+                "chronic_km2": rv["chronic_km2"],
+                "accuracy_pct": rv["accuracy_pct"],
+            }
+            for rid, rv in REGIONS.items()
+        ]
+    }
+
+
+@app.post("/render")
+async def render(request: ResetRequest = ResetRequest()):
+    """
+    Generate visual flood report for a region after an episode.
+    Returns base64-encoded PNG charts.
+    """
+    region_id = request.region_id or DEFAULT_REGION
+    if region_id not in REGIONS:
+        raise HTTPException(400, f"Unknown region: {region_id}")
+
+    region  = REGIONS[region_id]
+    history = _current_episode.history if _current_episode else []
+    task_id = _current_episode.task.task_id if _current_episode else "flood_year_comparison"
+
+    try:
+        charts = render_flood_report(region, history, task_id)
+        return {
+            "region_id":   region_id,
+            "region_name": region["name"],
+            "charts":      charts,
+            "chart_names": list(charts.keys()),
+        }
+    except Exception as e:
+        raise HTTPException(500, f"Render failed: {str(e)[:200]}")
+
 
 @app.get("/health")
 async def health():
