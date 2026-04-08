@@ -154,7 +154,7 @@ class FloodYearComparisonTask(BaseTask):
                 notes.append("Causal explanation (+0.25)")
 
         done = (self._rewarded_year and self._rewarded_areas and self._rewarded_reason) or step_num >= self.max_steps
-        return {"reward": float(min(reward, 1.0)), "done": done,
+        return {"reward": float(max(0.01, min(reward, 0.99))), "done": done,
                 "result": " | ".join(notes) if notes else "No criteria met.", "error": None}
 
     def get_context(self) -> Dict[str, Any]:
@@ -211,7 +211,7 @@ class DistrictInundationTask(BaseTask):
 
         done = (len(self._found) == len(r["chronic_districts"]) and
                 self._rewarded_area and self._rewarded_pop) or step_num >= self.max_steps
-        return {"reward": float(min(reward, 1.0)), "done": done,
+        return {"reward": float(max(0.01, min(reward, 0.99))), "done": done,
                 "result": " | ".join(notes) if notes else f"Districts found: {list(self._found)}", "error": None}
 
     def get_context(self) -> Dict[str, Any]:
@@ -297,7 +297,7 @@ class FloodRiskForecastTask(BaseTask):
         reward = max(reward, 0.0)
         criteria = self._acc + self._zones + (self._named >= 2) + self._rain + self._year
         done = criteria >= 4 or step_num >= self.max_steps
-        return {"reward": float(min(reward, 1.0)), "done": done,
+        return {"reward": float(max(0.01, min(reward, 0.99))), "done": done,
                 "result": " | ".join(notes) if notes else "No criteria met.", "error": None}
 
     def get_context(self) -> Dict[str, Any]:
