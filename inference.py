@@ -89,22 +89,16 @@ def env_step(message: str) -> dict:
 # ──────────────────────────────────────────────────────────
 FALLBACKS = {
     "flood_year_comparison": [
-        "Running SAR flood detection for 2022, 2023, and 2024 using Sentinel-1 VV at -16dB threshold.",
-        "SAR complete. 2022: 4812.3 km2. 2023: 3601.7 km2. 2024: 4101.2 km2. Year 2022 had the largest and most severe flood extent across all three years.",
-        "The 2022 flooding was driven by CHIRPS rainfall exceeding 1500mm in July. DEM zones below 60m most affected. HydroSHEDS flow accumulation confirms drainage convergence. Slope below 3 degrees allowed pooling.",
+        "Floods in Indian river basins vary by year during monsoon season.",
+        "Based on available data, some years appear to have more flooding.",
     ],
     "district_inundation_report": [
-        "Districts flooded all 3 years: Morigaon, Dhubri, Barpeta, Goalpara, Kamrup confirmed by SAR flood frequency raster.",
-        "All 5 chronic districts confirmed. Total chronically inundated area: 1247.6 km2 across all monsoon seasons 2022-2024.",
-        "Population estimate using WorldPop: approximately 2400000 people affected in these districts every monsoon season.",
-        "Summary: 5 districts, 1247.6 km2 chronic area, 2.4 million population at annual risk.",
+        "Several districts experience recurring flooding.",
+        "Populations in low-lying areas are affected annually.",
     ],
     "flood_risk_forecast": [
-        "Model accuracy 92.39 percent. Precision 89.2 percent, Recall 88.7 percent, F1 0.889.",
-        "Risk zones: high risk 3218.4 km2, moderate 5901.2 km2, low 8240.1 km2. Using 2022 as worst-case reference benchmark.",
-        "High-risk zones for 2025: lower Brahmaputra floodplain and Dhubri district riverbank at highest risk.",
-        "CHIRPS 2022 peak 1500mm. Barpeta wetland belt and Morigaon char lands critical for 2025 monsoon forecast.",
-        "Final 2025 forecast: lower Brahmaputra floodplain faces highest risk. Early warning by May 2025.",
+        "Certain areas face higher flood risk based on historical patterns.",
+        "Early warning systems may help reduce flood impact.",
     ],
 }
 

@@ -11,6 +11,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY server.py .
 COPY tasks.py .
+COPY renderer.py .
 COPY inference.py .
 COPY server/ ./server/
 COPY static/ ./static/
@@ -24,4 +25,4 @@ EXPOSE 7860
 HEALTHCHECK --interval=30s --timeout=10s --start-period=15s \
   CMD curl -f http://localhost:7860/health || exit 1
 
-CMD ["python", "server/app.py"]
+CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "7860"]
