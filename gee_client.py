@@ -34,7 +34,7 @@ def init_gee(project: str = None, sa_json: str = None) -> bool:
         if sa_json:
             key = sa_json if isinstance(sa_json, dict) else json.loads(sa_json)
             creds = ee.ServiceAccountCredentials(
-                email=key["client_email"], key_data=key)
+                email=key["client_email"], key_data=json.dumps(key))
             ee.Initialize(creds, project=project)
         else:
             ee.Initialize(project=project)
