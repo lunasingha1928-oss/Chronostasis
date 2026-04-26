@@ -7,45 +7,41 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=Rajdhani:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Rajdhani:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet"/>
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
-:root {
-  --gold:#C9962A;--gold-b:#E8B84B;--gold-p:#F5D88A;--gold-d:#8B6515;
-  --obs:#080808;--coal:#111111;--graph:#1a1a1a;
-  --ivory:#F0E8D0;--cream:#E8DCBC;--parch:#D4C89A;
-}
+:root{--gold:#C9962A;--gb:#E8B84B;--gd:#8B6515;--obs:#080808;--coal:#111111;--gr:#1a1a1a;--cr:#E8DCBC;--pa:#D4C89A}
 *{box-sizing:border-box;margin:0;padding:0}
-html{scroll-behavior:smooth}
-body{background:var(--obs);color:var(--cream);font-family:'Rajdhani',sans-serif;min-height:100vh;overflow-x:hidden}
+body{background:var(--obs);color:var(--cr);font-family:'Rajdhani',sans-serif;min-height:100vh;overflow-x:hidden}
 body::before{content:'';position:fixed;inset:0;z-index:0;background-image:linear-gradient(rgba(201,150,42,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(201,150,42,0.03) 1px,transparent 1px);background-size:48px 48px;pointer-events:none}
-body::after{content:'';position:fixed;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--gold),var(--gold-b),var(--gold),transparent);z-index:200}
-::-webkit-scrollbar{width:3px}::-webkit-scrollbar-track{background:var(--obs)}::-webkit-scrollbar-thumb{background:var(--gold-d)}
-.fd{font-family:'Montserrat',sans-serif;font-weight:600}.fm{font-family:'Share Tech Mono',monospace}.fb{font-family:'Rajdhani',sans-serif}
+body::after{content:'';position:fixed;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--gold),var(--gb),var(--gold),transparent);z-index:200}
+::-webkit-scrollbar{width:3px}::-webkit-scrollbar-track{background:var(--obs)}::-webkit-scrollbar-thumb{background:var(--gd)}
+.fd{font-family:'Montserrat',sans-serif;font-weight:600}
+.fm{font-family:'Share Tech Mono',monospace}
+.fb{font-family:'Rajdhani',sans-serif}
 .card{background:var(--coal);border:1px solid rgba(201,150,42,0.18);border-radius:2px;position:relative}
 .card::before{content:'';position:absolute;top:-1px;left:16px;right:16px;height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent)}
-.card-glow{box-shadow:0 0 24px rgba(201,150,42,0.06)}
 .card-active{border-color:rgba(201,150,42,0.55)!important;box-shadow:0 0 28px rgba(201,150,42,0.18),inset 0 0 40px rgba(201,150,42,0.04)!important}
-.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 18px;font-family:'Rajdhani',sans-serif;font-weight:600;font-size:12px;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;transition:all .2s;border-radius:1px}
-.btn-g{background:rgba(201,150,42,.1);border:1px solid rgba(201,150,42,.4);color:var(--gold-b)}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 18px;font-family:'Rajdhani',sans-serif;font-weight:600;font-size:12px;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;transition:all .2s;border-radius:1px}
+.btn-g{background:rgba(201,150,42,.1);border:1px solid rgba(201,150,42,.4);color:var(--gb)}
 .btn-g:hover:not(:disabled){background:rgba(201,150,42,.2);border-color:var(--gold);box-shadow:0 0 14px rgba(201,150,42,.25)}
 .btn-g:disabled{opacity:.35;cursor:not-allowed}
 .btn-d{background:rgba(139,58,10,.12);border:1px solid rgba(180,80,20,.3);color:#E87A40}
 .bdg{display:inline-flex;align-items:center;padding:1px 7px;border-radius:1px;font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:.1em;font-weight:700}
 .bdg-e{background:rgba(40,120,40,.18);border:1px solid rgba(40,180,40,.25);color:#70D070}
-.bdg-m{background:rgba(180,120,20,.18);border:1px solid rgba(220,160,40,.25);color:var(--gold-b)}
+.bdg-m{background:rgba(180,120,20,.18);border:1px solid rgba(220,160,40,.25);color:var(--gb)}
 .bdg-h{background:rgba(180,40,40,.18);border:1px solid rgba(220,60,60,.25);color:#E87070}
-.bdg-gold{background:rgba(201,150,42,.12);border:1px solid rgba(201,150,42,.3);color:var(--gold-b)}
-.bdg-live{background:rgba(40,120,40,.12);border:1px solid rgba(40,180,40,.22);color:#70D070}
-.tab{padding:8px 16px;font-family:'Rajdhani',sans-serif;font-weight:600;font-size:11px;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;transition:all .15s;color:#4A3A18;border-bottom:2px solid transparent}
-.tab.on{color:var(--gold-b);border-bottom-color:var(--gold)}
-.tab:hover:not(.on){color:var(--parch)}
+.bdg-g{background:rgba(201,150,42,.12);border:1px solid rgba(201,150,42,.3);color:var(--gb)}
+.bdg-lv{background:rgba(40,120,40,.12);border:1px solid rgba(40,180,40,.22);color:#70D070}
+.ntab{padding:8px 14px;font-family:'Rajdhani',sans-serif;font-weight:600;font-size:11px;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;transition:all .15s;color:#4A3A18;border-bottom:2px solid transparent;background:none;border-top:none;border-left:none;border-right:none}
+.ntab.active{color:var(--gb);border-bottom-color:var(--gold)}
+.ntab:hover:not(.active){color:var(--pa)}
 .term{background:#040404;border:1px solid rgba(201,150,42,.12);font-family:'Share Tech Mono',monospace;font-size:12px;line-height:1.8;padding:14px;overflow-y:auto}
 .divg{height:1px;background:linear-gradient(90deg,transparent,rgba(201,150,42,.25),transparent)}
 .stat{background:rgba(201,150,42,.04);border:1px solid rgba(201,150,42,.1);padding:10px 12px;border-radius:2px}
 .rbtn{background:var(--coal);border:1px solid rgba(201,150,42,.14);padding:9px 12px;border-radius:2px;cursor:pointer;transition:all .18s;text-align:left}
 .rbtn:hover{border-color:rgba(201,150,42,.35)}
-.rbtn.on{background:rgba(201,150,42,.07);border-color:rgba(201,150,42,.55);box-shadow:0 0 14px rgba(201,150,42,.14)}
+.rbtn.active{background:rgba(201,150,42,.07);border-color:rgba(201,150,42,.55);box-shadow:0 0 14px rgba(201,150,42,.14)}
 .deco{position:absolute;width:16px;height:16px}
 .deco::before,.deco::after{content:'';position:absolute;background:var(--gold)}
 .dtl{top:0;left:0}.dtl::before{top:0;left:0;width:10px;height:1px}.dtl::after{top:0;left:0;width:1px;height:10px}
@@ -53,16 +49,14 @@ body::after{content:'';position:fixed;top:0;left:0;right:0;height:2px;background
 .dbl{bottom:0;left:0}.dbl::before{bottom:0;left:0;width:10px;height:1px}.dbl::after{bottom:0;left:0;width:1px;height:10px}
 .dbr{bottom:0;right:0}.dbr::before{bottom:0;right:0;width:10px;height:1px}.dbr::after{bottom:0;right:0;width:1px;height:10px}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
-@keyframes up{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes slideUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
-@keyframes scan{0%{transform:translateY(-100%)}100%{transform:translateY(3000%)}}
-.ani-f{animation:fadeIn .35s ease-out}
-.ani-u{animation:up .3s ease-out}
+@keyframes ripple{0%{r:5;opacity:.8}100%{r:18;opacity:0}}
+.af{animation:fadeIn .35s ease-out}
+.au{animation:slideUp .3s ease-out}
 .cur::after{content:'█';animation:blink 1s step-end infinite;color:var(--gold)}
-.dot-p{animation:pulse 2s ease-in-out infinite}
-.scanwrap{position:relative;overflow:hidden}
-.scanwrap::after{content:'';position:absolute;left:0;right:0;height:40px;background:linear-gradient(transparent,rgba(201,150,42,.025),transparent);animation:scan 5s linear infinite;pointer-events:none}
+.dotp{animation:pulse 2s ease-in-out infinite}
 </style>
 </head>
 <body>
@@ -70,7 +64,7 @@ body::after{content:'';position:fixed;top:0;left:0;right:0;height:2px;background
 <script type="text/babel">
 const {useState,useEffect,useRef,useCallback}=React;
 const B='';
-
+const RC={critical:'#E87070',high:'#E8B84B',moderate:'#C9962A',low:'#70A070'};
 const TM={
   flood_year_comparison:{label:'Flood Year Comparison',diff:'EASY',color:'#70D070',steps:6},
   district_inundation_report:{label:'District Inundation',diff:'MEDIUM',color:'#E8B84B',steps:8},
@@ -82,12 +76,34 @@ const SL={
   post_monsoon:{label:'Post-Monsoon',months:'Oct–Nov',c:'#C9962A'},
   rabi:{label:'Rabi',months:'Dec–Feb',c:'#8B6515'},
 };
-const RC={critical:'#E87070',high:'#E8B84B',moderate:'#C9962A',low:'#70A070'};
+
+// Accurate India SVG path (clockwise from NW)
+const INDIA_PATH="M 79.4,57.5 L 90.0,35.9 L 121.8,21.6 L 142.9,50.3 L 137.6,71.9 L 153.5,107.8 L 164.1,136.6 L 195.9,143.8 L 232.9,150.9 L 241.4,150.9 L 270.0,150.9 L 322.9,136.6 L 333.5,150.9 L 312.4,179.7 L 296.5,194.1 L 291.2,208.4 L 285.9,230.0 L 280.6,230.0 L 270.0,201.2 L 248.8,222.8 L 238.2,237.2 L 222.4,251.6 L 206.5,265.9 L 190.6,287.5 L 182.1,294.7 L 164.1,316.2 L 153.5,323.4 L 151.4,352.2 L 148.2,395.3 L 122.8,429.8 L 111.2,409.7 L 103.8,388.1 L 93.2,366.6 L 82.6,323.4 L 76.2,294.7 L 72.0,273.1 L 73.1,251.6 L 68.8,237.2 L 63.5,222.8 L 47.6,218.5 L 37.1,222.8 L 37.1,230.0 L 47.6,237.2 L 63.5,244.4 L 52.9,208.4 L 26.5,208.4 L 24.4,201.2 L 47.6,150.9 L 68.8,122.2 L 90.0,100.6 L 90.0,79.1 L 79.4,57.5 Z";
+
+// Basin markers with corrected lat/lon projection
+const BASINS=[
+  {id:"brahmaputra",x:272.1,y:169.6,short:"BRAHM",color:"#E87070",risk:"critical",name:"Brahmaputra"},
+  {id:"ganga",x:202.2,y:178.2,short:"GANGA",color:"#E87070",risk:"critical",name:"Ganga"},
+  {id:"mahanadi",x:209.6,y:251.6,short:"MAHAN",color:"#E8B84B",risk:"high",name:"Mahanadi"},
+  {id:"krishna",x:154.6,y:309.1,short:"KRISH",color:"#E8B84B",risk:"high",name:"Krishna"},
+  {id:"godavari",x:167.3,y:294.7,short:"GODAV",color:"#E8B84B",risk:"high",name:"Godavari"},
+  {id:"narmada",x:121.8,y:219.9,short:"NARMA",color:"#E8B84B",risk:"high",name:"Narmada"},
+  {id:"tapti",x:93.2,y:241.5,short:"TAPTI",color:"#C9962A",risk:"moderate",name:"Tapti"},
+  {id:"cauvery",x:127.1,y:380.9,short:"CAUV",color:"#C9962A",risk:"moderate",name:"Cauvery"},
+  {id:"damodar",x:225.5,y:208.4,short:"DAMO",color:"#E8B84B",risk:"high",name:"Damodar"},
+  {id:"sabarmati",x:73.1,y:212.8,short:"SABAR",color:"#C9962A",risk:"moderate",name:"Sabarmati"},
+  {id:"mahi",x:79.4,y:222.8,short:"MAHI",color:"#C9962A",risk:"moderate",name:"Mahi"},
+  {id:"baitarani",x:211.8,y:237.2,short:"BAIT",color:"#E8B84B",risk:"high",name:"Baitarani"},
+  {id:"subarnarekha",x:217.1,y:222.8,short:"SUBAR",color:"#E8B84B",risk:"high",name:"Subarnarekha"},
+  {id:"indus",x:103.8,y:93.4,short:"INDUS",color:"#E8B84B",risk:"high",name:"Indus"},
+  {id:"luni",x:68.8,y:172.5,short:"LUNI",color:"#C9962A",risk:"moderate",name:"Luni"},
+];
 
 function DC({children,cls='',active=false,pad='16px'}){
   return(
-    <div className={`card card-glow relative ${active?'card-active':''} ${cls}`} style={{padding:pad}}>
-      <div className="deco dtl"/><div className="deco dtr"/><div className="deco dbl"/><div className="deco dbr"/>
+    <div className={`card relative ${active?'card-active':''} ${cls}`} style={{padding:pad}}>
+      <div className="deco dtl"/><div className="deco dtr"/>
+      <div className="deco dbl"/><div className="deco dbr"/>
       {children}
     </div>
   );
@@ -97,8 +113,8 @@ function RBar({val}){
   const p=Math.min(100,Math.round(val*100));
   const c=p>=70?'#70D070':p>=40?'#E8B84B':'#E87070';
   return(
-    <div style={{height:3,background:'#1a1a1a',borderRadius:0}}>
-      <div style={{height:'100%',width:`${p}%`,background:`linear-gradient(90deg,${c}66,${c})`,boxShadow:`0 0 8px ${c}44`,transition:'width .8s cubic-bezier(.4,0,.2,1)'}}/>
+    <div style={{height:3,background:'#1a1a1a'}}>
+      <div style={{height:'100%',width:`${p}%`,background:`linear-gradient(90deg,${c}55,${c})`,boxShadow:`0 0 8px ${c}44`,transition:'width .8s cubic-bezier(.4,0,.2,1)'}}/>
     </div>
   );
 }
@@ -107,10 +123,12 @@ function Term({lines,loading}){
   const r=useRef(null);
   useEffect(()=>{if(r.current)r.current.scrollTop=r.current.scrollHeight;},[lines]);
   return(
-    <div ref={r} className="term scanwrap" style={{minHeight:200,maxHeight:300}}>
+    <div ref={r} className="term" style={{minHeight:200,maxHeight:280,position:'relative',overflow:'hidden'}}>
+      {/* Scan line */}
+      <div style={{position:'absolute',left:0,right:0,height:40,background:'linear-gradient(transparent,rgba(201,150,42,.025),transparent)',animation:'none',pointerEvents:'none',zIndex:1}}/>
       {!lines.length&&<span style={{color:'#3A2D10'}}>{'>'} CHRONOSTASIS v2.0 — AWAITING COMMAND...</span>}
       {lines.map((l,i)=>(
-        <div key={i} className="ani-f" style={{color:l.color||'#D4C89A'}}>
+        <div key={i} style={{color:l.color||'#D4C89A'}}>
           {l.p&&<span style={{color:'#6B5A30',marginRight:8}}>{l.p}</span>}{l.t}
         </div>
       ))}
@@ -119,9 +137,107 @@ function Term({lines,loading}){
   );
 }
 
+// India SVG map in sidebar
+function IndiaMap({mapData,region,setRegion,season}){
+  const [hov,setHov]=useState(null);
+  const regions=mapData?.regions||[];
+  const getSR=id=>{const r=regions.find(r=>r.id===id);return r?.seasonal_risk||0.5;};
+  const getRL=id=>{const r=regions.find(r=>r.id===id);return r?.risk_level||'moderate';};
+  const info=regions.find(r=>r.id===(hov||region));
+  return(
+    <DC cls="af">
+      {/* Header */}
+      <div style={{marginBottom:10}}>
+        <div className="fm" style={{fontSize:9,color:'#4A3A18',letterSpacing:'.15em',marginBottom:4}}>◈ INDIA FLOOD RISK MAP</div>
+        <div className="fm" style={{fontSize:8,color:'#3A2D10'}}>{season.replace('_',' ').toUpperCase()} SEASON</div>
+      </div>
+      {/* Risk legend */}
+      <div style={{display:'flex',gap:8,marginBottom:10,flexWrap:'wrap'}}>
+        {[['CRITICAL','#E87070'],['HIGH','#E8B84B'],['MOD','#C9962A']].map(([l,c])=>(
+          <div key={l} style={{display:'flex',alignItems:'center',gap:3}}>
+            <div style={{width:6,height:6,background:c,boxShadow:`0 0 4px ${c}`}}/>
+            <span className="fm" style={{fontSize:7,color:'#4A3A18'}}>{l}</span>
+          </div>
+        ))}
+      </div>
+      {/* SVG Map */}
+      <svg viewBox="0 0 360 460" style={{width:'100%',maxWidth:320,display:'block',margin:'0 auto',background:'rgba(4,4,4,0.8)',border:'1px solid rgba(201,150,42,0.1)'}}>
+        {/* Grid */}
+        {[80,140,200,260,320,380].map(y=><line key={y} x1="0" y1={y} x2="360" y2={y} stroke="rgba(201,150,42,0.025)" strokeWidth="0.5"/>)}
+        {[60,110,160,210,260,310].map(x=><line key={x} x1={x} y1="0" x2={x} y2="460" stroke="rgba(201,150,42,0.025)" strokeWidth="0.5"/>)}
+        {/* India outline */}
+        <path d={INDIA_PATH} fill="rgba(201,150,42,0.04)" stroke="rgba(201,150,42,0.22)" strokeWidth="1.2" strokeLinejoin="round"/>
+        {/* River basin markers */}
+        {BASINS.map(b=>{
+          const rc=RC[getRL(b.id)]||b.color;
+          const sr=getSR(b.id);
+          const isSel=region===b.id;
+          const isHov=hov===b.id;
+          const r1=Math.round(4+sr*5);
+          return(
+            <g key={b.id} style={{cursor:'pointer'}}
+               onClick={()=>setRegion(b.id)}
+               onMouseEnter={()=>setHov(b.id)}
+               onMouseLeave={()=>setHov(null)}>
+              {/* Glow rings */}
+              {isSel&&<circle cx={b.x} cy={b.y} r={r1+12} fill={rc} opacity="0.06"/>}
+              <circle cx={b.x} cy={b.y} r={r1+5} fill={rc} opacity={isSel?0.10:0.03}/>
+              {/* Main pin */}
+              <circle cx={b.x} cy={b.y} r={r1} fill={rc}
+                opacity={isSel?1:0.75}
+                stroke={isSel?'#E8B84B':rc}
+                strokeWidth={isSel?1.5:0.5}/>
+              {/* Pin center dot */}
+              <circle cx={b.x} cy={b.y} r="2" fill="#040404" opacity="0.8"/>
+              {/* Label — always show short name */}
+              {(isSel||isHov)
+                ?<>
+                  <rect x={b.x-22} y={b.y-r1-19} width={44} height={13}
+                    fill="#0a0a0a" stroke={rc} strokeWidth="0.5" rx="0" opacity="0.95"/>
+                  <text x={b.x} y={b.y-r1-9} textAnchor="middle"
+                    fill={rc} fontSize="7" fontFamily="Share Tech Mono,monospace" fontWeight="bold">{b.name}</text>
+                </>
+                :<text x={b.x} y={b.y+r1+9} textAnchor="middle"
+                  fill={rc} fontSize="6" fontFamily="Share Tech Mono,monospace" opacity="0.65">{b.short}</text>
+              }
+            </g>
+          );
+        })}
+        {/* Map label */}
+        <text x="180" y="453" textAnchor="middle" fill="rgba(201,150,42,0.2)"
+          fontSize="7" fontFamily="Share Tech Mono,monospace">15 RIVER BASINS — INDIA</text>
+      </svg>
+      {/* Selected basin quick info */}
+      {info&&(
+        <div style={{marginTop:10,padding:'10px 12px',background:'rgba(201,150,42,0.04)',border:'1px solid rgba(201,150,42,0.15)'}}>
+          <div className="fb" style={{fontSize:13,fontWeight:700,color:'#E8B84B',marginBottom:2}}>{info.name}</div>
+          <div className="fm" style={{fontSize:8,color:'#4A3A18',marginBottom:6}}>{info.state?.split('/')[0].trim()} · {info.river}</div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4}}>
+            {[['RISK',(info.risk_level||'').toUpperCase(),RC[info.risk_level]||'#C9962A'],
+              ['ACC',`${info.accuracy_pct}%`,'#C9962A'],
+              ['POP',`${(info.chronic_pop/1e6).toFixed(1)}M`,'#E8B84B'],
+              ['KM²',`${info.chronic_km2?.toLocaleString()}`,'#E87070']
+            ].map(([l,v,c])=>(
+              <div key={l} className="stat" style={{padding:'6px 8px'}}>
+                <div className="fm" style={{fontSize:7,color:'#3A2D10',marginBottom:1}}>{l}</div>
+                <div className="fm" style={{fontSize:11,color:c,fontWeight:700}}>{v}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{marginTop:6}}>
+            <div className="fm" style={{fontSize:7,color:'#3A2D10',marginBottom:2}}>SEASONAL RISK</div>
+            <div style={{height:2,background:'#1a1a1a'}}>
+              <div style={{height:'100%',width:`${(info.seasonal_risk||0)*100}%`,background:RC[info.risk_level]||'#C9962A',transition:'width .5s'}}/>
+            </div>
+          </div>
+        </div>
+      )}
+    </DC>
+  );
+}
+
 function App(){
   const[health,setHealth]=useState(null);
-  const[regions,setRegions]=useState([]);
   const[map,setMap]=useState(null);
   const[region,setRegion]=useState('brahmaputra');
   const[task,setTask]=useState('flood_year_comparison');
@@ -129,19 +245,28 @@ function App(){
   const[ep,setEp]=useState(null);
   const[lines,setLines]=useState([]);
   const[loading,setLoading]=useState(false);
-  const[tab,setTab]=useState('demo');
+  const[activeTab,setActiveTab]=useState('demo');
+  const[usingTrained,setUsingTrained]=useState(true);
+  const[compareResult,setCompareResult]=useState(null);
+  const[comparing,setComparing]=useState(false);
 
   const log=(t,color='#D4C89A',p=null)=>setLines(prev=>[...prev.slice(-80),{t,color,p}]);
 
   useEffect(()=>{
-    fetch(`${B}/health`).then(r=>r.json()).then(setHealth).catch(()=>{});
-    fetch(`${B}/regions`).then(r=>r.json()).then(setRegions).catch(()=>{});
+    fetch(`${B}/health`).then(r=>r.json()).then(d=>{
+    setHealth(d);
+    if(d.using_trained_model!==undefined){
+      setUsingTrained(d.using_trained_model);
+    }
+  }).catch(()=>{});
     fetch(`${B}/india_risk_map?season=kharif`).then(r=>r.json()).then(setMap).catch(()=>{});
   },[]);
 
-  const fetchMap=useCallback(async(s)=>{
+  const fetchMap=useCallback(async s=>{
     try{const d=await fetch(`${B}/india_risk_map?season=${s}`).then(r=>r.json());setMap(d);}catch{}
   },[]);
+
+  const handleSeason=s=>{setSeason(s);fetchMap(s);};
 
   const doReset=async()=>{
     setLoading(true);
@@ -150,8 +275,8 @@ function App(){
       const r=await fetch(`${B}/reset`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({task_id:task,region_id:region,season})});
       const d=await r.json();
       if(!r.ok){log(`✗ ${d.detail}`,'#E87070','✗');return;}
-      log(`✓ EPISODE STARTED — ${d.task_description?.substring(0,70)}...`,'#70D070','✓');
-      log(`  REGION: ${d.region_name}  MAX_STEPS: ${d.max_steps}`,'#4A3A18');
+      log(`✓ EPISODE STARTED`,'#70D070','✓');
+      log(`  ${d.task_description?.substring(0,70)}...`,'#4A3A18');
       setEp({task_id:task,total_reward:0,steps:0,done:false,history:[]});
     }catch(e){log(`✗ ${e.message}`,'#E87070','✗');}
     finally{setLoading(false);}
@@ -165,105 +290,139 @@ function App(){
       const d=await r.json();
       if(!r.ok){log(`✗ ${d.detail}`,'#E87070','✗');return;}
       log(`  [STEP ${d.step}] REWARD=${d.reward?.toFixed(3)}  DONE=${d.done}`,'#E8B84B','ℹ');
-      if(d.agent_message)log(`  ${d.agent_message?.substring(0,150)}${d.agent_message?.length>150?'...':''}`,'#7A6830');
+      if(d.agent_message)log(`  ${d.agent_message?.substring(0,150)}...`,'#7A6830');
       setEp(prev=>({task_id:task,total_reward:d.total_reward||(prev?.total_reward||0)+(d.reward||0),steps:d.step,done:d.done,history:[...(prev?.history||[]),{step:d.step,reward:d.reward,action:d.agent_message}]}));
-      if(d.done)log(`✓ EPISODE COMPLETE — TOTAL: ${d.total_reward?.toFixed(3)}`,'#70D070','✓');
+      if(d.done)log(`✓ COMPLETE — TOTAL: ${d.total_reward?.toFixed(3)}`,'#70D070','✓');
     }catch(e){log(`✗ ${e.message}`,'#E87070','✗');}
     finally{setLoading(false);}
   };
 
-  const cur=map?.regions?.find(r=>r.id===region);
+  const doCompare=async()=>{
+    setComparing(true);
+    log(`→ COMPARE trained vs baseline | task=${task} region=${region}`,'#C9962A','◈');
+    try{
+      const r=await fetch(`${B}/agent/compare`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({task_id:task,region_id:region})});
+      const d=await r.json();
+      if(!r.ok){log(`✗ ${d.error}`,'#E87070','✗');return;}
+      setCompareResult(d);
+      log(`✓ TRAINED reward=${d.trained?.reward}  BASELINE reward=${d.baseline?.reward}  Δ=${d.improvement}`,'#70D070','✓');
+    }catch(e){log(`✗ ${e.message}`,'#E87070','✗');}
+    finally{setComparing(false);}
+  };
+
   const tm=TM[task]||{};
+  const curMapR=map?.regions?.find(r=>r.id===region);
 
   return(
     <div style={{position:'relative',zIndex:1}}>
       {/* HEADER */}
-      <header style={{borderBottom:'1px solid rgba(201,150,42,0.18)',background:'rgba(8,8,8,0.96)',backdropFilter:'blur(12px)',position:'sticky',top:0,zIndex:50,padding:'0 24px'}}>
-        <div style={{maxWidth:1320,margin:'0 auto',height:58,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+      <header style={{borderBottom:'1px solid rgba(201,150,42,0.18)',background:'rgba(8,8,8,0.97)',backdropFilter:'blur(12px)',position:'sticky',top:0,zIndex:50,padding:'0 24px'}}>
+        <div style={{maxWidth:1360,margin:'0 auto',height:56,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
           <div style={{display:'flex',alignItems:'center',gap:14}}>
             <div style={{width:34,height:34,border:'1px solid rgba(201,150,42,.35)',display:'flex',alignItems:'center',justifyContent:'center',background:'rgba(201,150,42,.07)',fontSize:16}}>🌊</div>
             <div>
-              <div className="fd" style={{fontSize:17,letterSpacing:'.08em',color:'#E8B84B',fontWeight:600}}>CHRONOSTASIS</div>
+              <div className="fd" style={{fontSize:17,letterSpacing:'.04em',color:'#E8B84B'}}>CHRONOSTASIS</div>
               <div className="fm" style={{fontSize:8,color:'#4A3A18',letterSpacing:'.2em'}}>FLOOD INTELLIGENCE SYSTEM v2.0</div>
             </div>
           </div>
           <div style={{display:'flex',alignItems:'center',gap:10}}>
             {health&&(<>
-              <span className="bdg bdg-live"><span className="dot-p" style={{display:'inline-block',width:5,height:5,borderRadius:'50%',background:'#70D070',marginRight:4}}/>ENV LIVE</span>
-              {health.gee_available&&<span className="bdg bdg-gold">GEE</span>}
-              {health.llm_configured&&<span className="bdg bdg-gold">LLM</span>}
-              <span className="bdg bdg-gold">{health.regions?.length||15} BASINS</span>
+              <span className="bdg bdg-lv"><span className="dotp" style={{display:'inline-block',width:5,height:5,borderRadius:'50%',background:'#70D070',marginRight:4}}/>ENV LIVE</span>
+              {health.gee_available&&<span className="bdg bdg-g">GEE</span>}
+              {health.llm_configured&&<span className="bdg bdg-g">LLM</span>}
+              <span className="bdg" style={{background:usingTrained?'rgba(112,210,112,.12)':'rgba(201,150,42,.12)',border:`1px solid ${usingTrained?'rgba(112,210,112,.3)':'rgba(201,150,42,.3)'}`,color:usingTrained?'#70D070':'#C9962A'}}>
+                {usingTrained?'RL MODEL':'BASE MODEL'}
+              </span>
+              <span className="bdg bdg-g">{health.regions?.length||15} BASINS</span>
             </>)}
           </div>
         </div>
       </header>
 
       {/* HERO */}
-      <div style={{padding:'44px 24px 28px',textAlign:'center',position:'relative'}}>
-        <div className="divg" style={{marginBottom:28}}/>
-        <div className="fd" style={{fontSize:46,letterSpacing:'.06em',color:'#E8B84B',textShadow:'0 0 48px rgba(201,150,42,.45)',marginBottom:10,fontWeight:600}}>FLOOD INTELLIGENCE</div>
-        <div className="fb" style={{fontSize:14,color:'#6B5A30',letterSpacing:'.16em',textTransform:'uppercase',marginBottom:6}}>OpenEnv-Compatible Reinforcement Learning Environment</div>
-        <div className="fm" style={{fontSize:10,color:'#3A2D10',letterSpacing:'.08em'}}>Sentinel-1 SAR · CHIRPS · HydroSHEDS · SRTM · WorldPop · 15 Indian River Basins</div>
-        <div className="divg" style={{marginTop:28}}/>
+      <div style={{padding:'40px 24px 24px',textAlign:'center'}}>
+        <div className="divg" style={{marginBottom:24}}/>
+        <div className="fd" style={{fontSize:44,letterSpacing:'.04em',color:'#E8B84B',textShadow:'0 0 48px rgba(201,150,42,.45)',marginBottom:8}}>FLOOD INTELLIGENCE</div>
+        <div className="fb" style={{fontSize:13,color:'#6B5A30',letterSpacing:'.14em',textTransform:'uppercase',marginBottom:5}}>OpenEnv-Compatible Reinforcement Learning Environment</div>
+        <div className="fm" style={{fontSize:9,color:'#3A2D10'}}>Sentinel-1 SAR · CHIRPS · HydroSHEDS · SRTM · WorldPop · 15 Indian River Basins</div>
+        <div className="divg" style={{marginTop:24}}/>
       </div>
 
-      <div style={{maxWidth:1320,margin:'0 auto',padding:'0 24px 60px',display:'grid',gridTemplateColumns:'1fr 332px',gap:20}}>
+      {/* MAIN LAYOUT */}
+      <div style={{maxWidth:1360,margin:'0 auto',padding:'0 24px 60px',display:'grid',gridTemplateColumns:'1fr 360px',gap:20}}>
+
         {/* LEFT */}
         <div style={{display:'flex',flexDirection:'column',gap:14}}>
 
-          {/* Season */}
+          {/* Season selector */}
           <DC>
             <div className="fm" style={{fontSize:9,color:'#4A3A18',letterSpacing:'.15em',marginBottom:10}}>◈ SELECT SEASON</div>
             <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
               {Object.entries(SL).map(([id,s])=>(
-                <button key={id} className="btn" onClick={()=>{setSeason(id);fetchMap(id);}}
-                  style={{padding:'6px 12px',fontSize:11,borderColor:season===id?s.c:'rgba(201,150,42,.12)',background:season===id?`${s.c}15`:'transparent',color:season===id?s.c:'#4A3A18',boxShadow:season===id?`0 0 12px ${s.c}22`:'none'}}>
-                  <div className="fb" style={{fontSize:12,fontWeight:600}}>{s.label}</div>
-                  <div className="fm" style={{fontSize:9,opacity:.65}}>{s.months}</div>
+                <button key={id} onClick={()=>handleSeason(id)}
+                  style={{display:'flex',flexDirection:'column',alignItems:'center',padding:'8px 14px',cursor:'pointer',transition:'all .2s',border:`1px solid ${season===id?s.c:'rgba(201,150,42,.12)'}`,background:season===id?`${s.c}12`:'transparent',color:season===id?s.c:'#4A3A18',boxShadow:season===id?`0 0 10px ${s.c}20`:'none',borderRadius:1}}>
+                  <span className="fb" style={{fontSize:13,fontWeight:600,letterSpacing:'.05em'}}>{s.label}</span>
+                  <span className="fm" style={{fontSize:9,opacity:.65}}>{s.months}</span>
                 </button>
               ))}
             </div>
           </DC>
 
-          {/* Regions */}
+          {/* Basin selector */}
           <DC>
-            <div className="fm" style={{fontSize:9,color:'#4A3A18',letterSpacing:'.15em',marginBottom:10}}>◈ SELECT BASIN — {map?.total_regions||regions.length||15} REGIONS</div>
+            <div className="fm" style={{fontSize:9,color:'#4A3A18',letterSpacing:'.15em',marginBottom:10}}>◈ SELECT BASIN — {map?.total_regions||15} REGIONS</div>
+            <div style={{display:'flex',gap:6,marginBottom:10,flexWrap:'wrap'}}>
+              {[2022,2023,2024].map(yr=>(
+                <a key={yr}
+                  href={`${B}/gee/code?region_id=${region}&year=${yr}`}
+                  download={`chronostasis_${region}_flood_${yr}.js`}
+                  style={{display:'inline-flex',alignItems:'center',gap:5,padding:'4px 10px',border:'1px solid rgba(201,150,42,.25)',background:'rgba(201,150,42,.06)',color:'#C9962A',textDecoration:'none',fontFamily:"'Share Tech Mono',monospace",fontSize:9,letterSpacing:'.08em',borderRadius:1}}>
+                  ⬇ GEE {yr}
+                </a>
+              ))}
+              <a href={`${B}/gee/code/all`}
+                download="chronostasis_all_india_flood.js"
+                style={{display:'inline-flex',alignItems:'center',gap:5,padding:'4px 10px',border:'1px solid rgba(112,160,112,.25)',background:'rgba(112,160,112,.06)',color:'#70D070',textDecoration:'none',fontFamily:"'Share Tech Mono',monospace",fontSize:9,letterSpacing:'.08em',borderRadius:1}}>
+                ⬇ ALL 15 BASINS GEE
+              </a>
+            </div>
             <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
               {(map?.regions||[]).map(r=>{
                 const rc=RC[r.risk_level]||'#C9962A';
                 const on=region===r.id;
                 return(
-                  <button key={r.id} className={`rbtn ${on?'on':''}`} onClick={()=>setRegion(r.id)} style={{minWidth:130}}>
+                  <button key={r.id} className={`rbtn ${on?'active':''}`} onClick={()=>setRegion(r.id)} style={{minWidth:120}}>
                     <div style={{display:'flex',alignItems:'center',gap:5,marginBottom:2}}>
-                      <div style={{width:5,height:5,background:rc,boxShadow:`0 0 5px ${rc}`,flexShrink:0}}/>
-                      <span className="fb" style={{fontSize:12,fontWeight:700,color:on?'#E8B84B':'#D4C89A'}}>{r.name?.split(' ')[0]||r.id}</span>
+                      <div style={{width:5,height:5,background:rc,boxShadow:`0 0 4px ${rc}`,flexShrink:0}}/>
+                      <span className="fb" style={{fontSize:12,fontWeight:700,color:on?'#E8B84B':'#D4C89A'}}>{r.name?.split(' ')[0]}</span>
                     </div>
-                    <div className="fm" style={{fontSize:9,color:'#4A3A18'}}>{r.state?.split('/')[0].trim()}</div>
-                    {r.accuracy_pct&&<div className="fm" style={{fontSize:9,color:on?'#C9962A':'#3A2D10',marginTop:2}}>{r.accuracy_pct}% acc</div>}
+                    <div className="fm" style={{fontSize:8,color:'#4A3A18'}}>{r.state?.split('/')[0].trim()}</div>
+                    {r.accuracy_pct&&<div className="fm" style={{fontSize:8,color:on?'#C9962A':'#3A2D10',marginTop:1}}>{r.accuracy_pct}% acc</div>}
                   </button>
                 );
               })}
             </div>
           </DC>
 
-          {/* Tabs */}
+          {/* Tab nav — using button elements with activeTab state */}
           <div>
             <div style={{display:'flex',borderBottom:'1px solid rgba(201,150,42,.14)'}}>
-              {[['demo','◈ AGENT DEMO'],['map','◈ RISK MAP'],['basins','◈ ALL BASINS'],['api','◈ API']].map(([id,l])=>(
-                <button key={id} className={`tab ${tab===id?'on':''}`} onClick={()=>setTab(id)}>{l}</button>
+              {[['demo','◈ AGENT DEMO'],['basins','◈ ALL BASINS'],['api','◈ API']].map(([id,l])=>(
+                <button key={id} className={`ntab ${activeTab===id?'active':''}`}
+                  onClick={()=>setActiveTab(id)}>{l}</button>
               ))}
             </div>
-            <div style={{marginTop:14}}>
 
-              {/* DEMO */}
-              {tab==='demo'&&(
+            <div style={{marginTop:14}}>
+              {/* DEMO TAB */}
+              {activeTab==='demo'&&(
                 <div style={{display:'flex',flexDirection:'column',gap:12}}>
                   <DC>
                     <div className="fm" style={{fontSize:9,color:'#4A3A18',letterSpacing:'.15em',marginBottom:10}}>◈ TASK CONFIGURATION</div>
                     <div style={{display:'flex',flexWrap:'wrap',gap:8,marginBottom:12}}>
                       {Object.entries(TM).map(([id,m])=>(
-                        <button key={id} className="btn" onClick={()=>setTask(id)}
-                          style={{borderColor:task===id?m.color:'rgba(201,150,42,.12)',background:task===id?`${m.color}10`:'transparent',color:task===id?m.color:'#4A3A18',boxShadow:task===id?`0 0 10px ${m.color}1a`:'none'}}>
+                        <button key={id} onClick={()=>setTask(id)}
+                          style={{display:'inline-flex',alignItems:'center',gap:6,padding:'7px 14px',cursor:'pointer',transition:'all .2s',borderRadius:1,border:`1px solid ${task===id?m.color:'rgba(201,150,42,.12)'}`,background:task===id?`${m.color}10`:'transparent',color:task===id?m.color:'#4A3A18',boxShadow:task===id?`0 0 10px ${m.color}1a`:'none'}}>
                           <span className={`bdg bdg-${m.diff.toLowerCase()}`}>{m.diff}</span>
                           <span className="fb" style={{fontSize:12,fontWeight:500}}>{m.label}</span>
                           <span className="fm" style={{fontSize:9,opacity:.5}}>/{m.steps}</span>
@@ -274,25 +433,29 @@ function App(){
                       <button className="btn btn-g" onClick={doReset} disabled={loading}>◈ RESET EPISODE</button>
                       <button className="btn btn-g" onClick={doStep} disabled={loading}>▶ AGENT STEP</button>
                       <button className="btn btn-d" onClick={()=>setLines([])} style={{marginLeft:'auto'}}>CLEAR</button>
+                      <button className="btn" onClick={doCompare} disabled={comparing||loading}
+                        style={{borderColor:'rgba(112,160,112,.4)',background:'rgba(112,160,112,.08)',color:'#70D070',marginLeft:4}}>
+                        ⚡ COMPARE MODELS
+                      </button>
                     </div>
                   </DC>
                   <Term lines={lines} loading={loading}/>
                   {ep&&(
-                    <DC active className="ani-u">
+                    <DC active className="au">
                       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
                         <div style={{display:'flex',alignItems:'center',gap:8}}>
-                          <div className="dot-p" style={{width:7,height:7,background:ep.done?'#70D070':'#E8B84B',boxShadow:`0 0 6px ${ep.done?'#70D070':'#E8B84B'}`}}/>
-                          <span className="fm" style={{fontSize:10,color:'#4A3A18',letterSpacing:'.1em'}}>EPISODE STATUS</span>
+                          <div className="dotp" style={{width:7,height:7,background:ep.done?'#70D070':'#E8B84B',boxShadow:`0 0 6px ${ep.done?'#70D070':'#E8B84B'}`}}/>
+                          <span className="fm" style={{fontSize:9,color:'#4A3A18',letterSpacing:'.1em'}}>EPISODE STATUS</span>
                         </div>
                         <div style={{display:'flex',gap:6}}>
                           <span className={`bdg bdg-${tm.diff?.toLowerCase()}`}>{tm.diff}</span>
-                          <span className="bdg bdg-gold">{cur?.name?.split(' ')[0]||region}</span>
+                          <span className="bdg bdg-g">{curMapR?.name?.split(' ')[0]||region}</span>
                         </div>
                       </div>
                       <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8,marginBottom:10}}>
                         {[['STEP',`${ep.steps}/${tm.steps||'?'}`,'#D4C89A'],['REWARD',ep.total_reward.toFixed(3),tm.color||'#E8B84B'],['STATUS',ep.done?'COMPLETE':'ACTIVE',ep.done?'#70D070':'#E8B84B']].map(([l,v,c])=>(
                           <div key={l} className="stat">
-                            <div className="fm" style={{fontSize:8,color:'#3A2D10',letterSpacing:'.14em',marginBottom:3}}>{l}</div>
+                            <div className="fm" style={{fontSize:8,color:'#3A2D10',letterSpacing:'.12em',marginBottom:3}}>{l}</div>
                             <div className="fm" style={{fontSize:14,fontWeight:700,color:c}}>{v}</div>
                           </div>
                         ))}
@@ -305,9 +468,9 @@ function App(){
                     <div>
                       <div className="fm" style={{fontSize:8,color:'#3A2D10',letterSpacing:'.15em',marginBottom:8}}>◈ STEP HISTORY</div>
                       {ep.history.slice(-4).map((h,i)=>(
-                        <div key={i} className="card ani-u" style={{padding:'9px 12px',marginBottom:5,borderColor:h.reward>0.3?'rgba(201,150,42,.22)':'rgba(201,150,42,.07)'}}>
+                        <div key={i} className="card au" style={{padding:'9px 12px',marginBottom:5,borderColor:h.reward>0.3?'rgba(201,150,42,.2)':'rgba(201,150,42,.07)'}}>
                           <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:3}}>
-                            <span className="bdg bdg-gold" style={{fontSize:8}}>STEP {h.step}</span>
+                            <span className="bdg bdg-g" style={{fontSize:8}}>STEP {h.step}</span>
                             <div style={{flex:1}}><RBar val={h.reward||0}/></div>
                             <span className="fm" style={{fontSize:11,color:'#E8B84B'}}>+{h.reward?.toFixed(3)}</span>
                           </div>
@@ -319,54 +482,42 @@ function App(){
                 </div>
               )}
 
-              {/* MAP */}
-              {tab==='map'&&(
-                <DC>
-                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
-                    <div className="fm" style={{fontSize:9,color:'#4A3A18',letterSpacing:'.15em'}}>◈ ALL-INDIA RISK — {season.replace('_',' ').toUpperCase()}</div>
-                    <div style={{display:'flex',gap:8}}>
-                      {Object.entries(RC).map(([l,c])=>(
-                        <div key={l} style={{display:'flex',alignItems:'center',gap:4}}>
-                          <div style={{width:7,height:7,background:c}}/>
-                          <span className="fm" style={{fontSize:8,color:'#3A2D10'}}>{l.toUpperCase()}</span>
-                        </div>
-                      ))}
+              {/* Compare result */}
+              {compareResult&&activeTab==='demo'&&(
+                <div className="card au" style={{padding:'14px',borderColor:'rgba(112,160,112,.3)'}}>
+                  <div className="fm" style={{fontSize:9,color:'#4A3A18',letterSpacing:'.15em',marginBottom:10}}>◈ MODEL COMPARISON RESULT</div>
+                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:10}}>
+                    <div style={{padding:'10px',background:'rgba(112,160,112,.05)',border:'1px solid rgba(112,160,112,.2)'}}>
+                      <div className="fm" style={{fontSize:8,color:'#70D070',marginBottom:4}}>TRAINED RL MODEL · {compareResult.trained?.reward}</div>
+                      <div className="fm" style={{fontSize:8,color:'#3A2D10',marginBottom:4}}>LunaAmagi/chronostasis-3b-grpo-medium</div>
+                      <p className="fb" style={{fontSize:11,color:'#8B7840',lineHeight:1.5}}>{compareResult.trained?.response?.substring(0,200)}...</p>
+                    </div>
+                    <div style={{padding:'10px',background:'rgba(139,58,10,.05)',border:'1px solid rgba(139,58,10,.2)'}}>
+                      <div className="fm" style={{fontSize:8,color:'#E87A40',marginBottom:4}}>BASELINE (VAGUE) · {compareResult.baseline?.reward}</div>
+                      <div className="fm" style={{fontSize:8,color:'#3A2D10',marginBottom:4}}>Untrained fallback</div>
+                      <p className="fb" style={{fontSize:11,color:'#8B7840',lineHeight:1.5}}>{compareResult.baseline?.response}</p>
                     </div>
                   </div>
-                  <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(190px,1fr))',gap:7}}>
-                    {(map?.regions||[]).sort((a,b)=>(b.seasonal_risk||0)-(a.seasonal_risk||0)).map(r=>{
-                      const rc=RC[r.risk_level]||'#C9962A';
-                      const on=region===r.id;
-                      return(
-                        <div key={r.id} className={`rbtn ${on?'on':''}`} onClick={()=>setRegion(r.id)} style={{padding:'11px 13px'}}>
-                          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:5}}>
-                            <span className="fb" style={{fontSize:12,fontWeight:700,color:on?'#E8B84B':'#D4C89A'}}>{r.name?.split(' ')[0]}</span>
-                            <span className="bdg" style={{background:`${rc}15`,border:`1px solid ${rc}33`,color:rc,fontSize:8}}>{r.risk_level?.toUpperCase()}</span>
-                          </div>
-                          <div className="fm" style={{fontSize:9,color:'#3A2D10',marginBottom:5}}>{r.state?.split('/')[0].trim()}</div>
-                          <div style={{height:2,background:'#1a1a1a',marginBottom:4}}>
-                            <div style={{height:'100%',width:`${(r.seasonal_risk||0)*100}%`,background:rc,transition:'width .6s'}}/>
-                          </div>
-                          <div style={{display:'flex',justifyContent:'space-between'}}>
-                            <span className="fm" style={{fontSize:9,color:'#3A2D10'}}>Risk {Math.round((r.seasonal_risk||0)*100)}%</span>
-                            <span className="fm" style={{fontSize:9,color:'#3A2D10'}}>{(r.chronic_pop/1e6).toFixed(1)}M</span>
-                          </div>
-                        </div>
-                      );
-                    })}
+                  <div style={{display:'flex',alignItems:'center',gap:10}}>
+                    <span className="fm" style={{fontSize:9,color:'#4A3A18'}}>IMPROVEMENT:</span>
+                    <span className="fm" style={{fontSize:14,fontWeight:700,color:'#70D070'}}>+{compareResult.improvement?.toFixed(3)}</span>
+                    <div style={{flex:1,height:3,background:'#1a1a1a',marginLeft:8}}>
+                      <div style={{height:'100%',width:`${Math.min((compareResult.trained?.reward||0)*100,100)}%`,background:'linear-gradient(90deg,#70D07044,#70D070)'}}/>
+                    </div>
+                    <span className="fm" style={{fontSize:11,color:'#70D070'}}>{Math.round((compareResult.trained?.reward||0)*100)}%</span>
                   </div>
-                </DC>
+                </div>
               )}
 
-              {/* BASINS */}
-              {tab==='basins'&&map?.regions&&(
+              {/* ALL BASINS TAB */}
+              {activeTab==='basins'&&map?.regions&&(
                 <DC>
                   <div className="fm" style={{fontSize:9,color:'#4A3A18',letterSpacing:'.15em',marginBottom:14}}>◈ COMPARATIVE OVERVIEW — {map.regions.length} BASINS</div>
                   <div style={{overflowX:'auto'}}>
                     <table style={{width:'100%',borderCollapse:'collapse'}}>
                       <thead>
                         <tr style={{borderBottom:'1px solid rgba(201,150,42,.18)'}}>
-                          {['Basin','State','Peak Year','Peak Flood','At Risk','Accuracy','Risk Level'].map(h=>(
+                          {['Basin','State','Peak Year','Peak Flood','At Risk','Accuracy','Risk'].map(h=>(
                             <th key={h} style={{padding:'5px 10px',textAlign:'left',fontFamily:'Share Tech Mono',fontSize:8,color:'#4A3A18',letterSpacing:'.1em',fontWeight:400}}>{h.toUpperCase()}</th>
                           ))}
                         </tr>
@@ -376,7 +527,8 @@ function App(){
                           const rc=RC[r.risk_level]||'#C9962A';
                           const on=region===r.id;
                           return(
-                            <tr key={r.id} onClick={()=>setRegion(r.id)} style={{borderBottom:'1px solid rgba(201,150,42,.05)',cursor:'pointer',background:on?'rgba(201,150,42,.04)':'transparent',transition:'background .15s'}}>
+                            <tr key={r.id} onClick={()=>setRegion(r.id)}
+                              style={{borderBottom:'1px solid rgba(201,150,42,.05)',cursor:'pointer',background:on?'rgba(201,150,42,.04)':'transparent',transition:'background .15s'}}>
                               <td style={{padding:'7px 10px',fontFamily:'Rajdhani',fontWeight:700,fontSize:13,color:on?'#E8B84B':'#D4C89A'}}>{r.name?.split(' ')[0]}</td>
                               <td style={{padding:'7px 10px',fontFamily:'Share Tech Mono',fontSize:9,color:'#4A3A18'}}>{r.state?.split('/')[0].trim()}</td>
                               <td style={{padding:'7px 10px',fontFamily:'Share Tech Mono',fontSize:10,color:'#C9962A'}}>{r.peak_year}</td>
@@ -393,18 +545,27 @@ function App(){
                 </DC>
               )}
 
-              {/* API */}
-              {tab==='api'&&(
+              {/* API TAB */}
+              {activeTab==='api'&&(
                 <DC>
                   <div className="fm" style={{fontSize:9,color:'#4A3A18',letterSpacing:'.15em',marginBottom:14}}>◈ OPENENV API ENDPOINTS</div>
-                  {[['POST','/reset','Start episode','{"task_id":"flood_year_comparison","region_id":"brahmaputra","season":"kharif"}'],['POST','/step','Submit action','{"message":"2022 had 4812.3 km² SAR extent..."}'],['GET','/state','Episode state',null],['POST','/agent/step','4-Agent pipeline','{"task_id":"...","region_id":"..."}'],['GET','/regions','All 15 basins',null],['GET','/tasks','All 3 tasks',null],['GET','/india_risk_map','All-India risk','?season=kharif'],['GET','/seasons','Available seasons',null],['GET','/health','Health check',null]].map(([m,p,d,b])=>(
-                    <div key={p} className="card" style={{padding:'9px 12px',marginBottom:6}}>
+                  {[['POST','/reset','Start episode','{"task_id":"flood_year_comparison","region_id":"brahmaputra","season":"kharif"}'],
+                    ['POST','/step','Submit action','{"message":"2022 had 4812.3 km² SAR extent..."}'],
+                    ['GET','/state','Episode state',null],
+                    ['POST','/agent/step','4-Agent pipeline','{"task_id":"...","region_id":"..."}'],
+                    ['GET','/regions','All 15 basins',null],
+                    ['GET','/india_risk_map','All-India risk','?season=kharif'],
+                    ['GET','/health','Health check',null],
+                    ['GET','/gee/code','Download GEE code','?region_id=brahmaputra&year=2022'],
+                    ['GET','/gee/code/all','All-India GEE code',null],
+                  ].map(([m,path,d,body])=>(
+                    <div key={path} className="card" style={{padding:'9px 12px',marginBottom:6}}>
                       <div style={{display:'flex',alignItems:'center',gap:7}}>
                         <span className="bdg" style={{background:m==='POST'?'rgba(40,140,40,.15)':'rgba(201,150,42,.12)',border:`1px solid ${m==='POST'?'rgba(40,180,40,.25)':'rgba(201,150,42,.28)'}`,color:m==='POST'?'#70D070':'#E8B84B'}}>{m}</span>
-                        <span className="fm" style={{color:'#D4C89A',fontSize:12}}>{p}</span>
+                        <span className="fm" style={{color:'#D4C89A',fontSize:12}}>{path}</span>
                         <span className="fb" style={{marginLeft:'auto',fontSize:11,color:'#3A2D10'}}>{d}</span>
                       </div>
-                      {b&&<div className="fm" style={{fontSize:9,color:'#3A2D10',marginTop:5,padding:'3px 8px',background:'#040404',borderLeft:'2px solid rgba(201,150,42,.18)'}}>{b}</div>}
+                      {body&&<div className="fm" style={{fontSize:9,color:'#3A2D10',marginTop:5,padding:'3px 8px',background:'#040404',borderLeft:'2px solid rgba(201,150,42,.18)'}}>{body}</div>}
                     </div>
                   ))}
                 </DC>
@@ -416,42 +577,15 @@ function App(){
         {/* RIGHT SIDEBAR */}
         <div style={{display:'flex',flexDirection:'column',gap:12}}>
 
-          {/* Basin detail */}
-          {cur&&(
-            <DC active className="ani-f">
-              <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:10}}>
-                <div>
-                  <div className="fd" style={{fontSize:15,letterSpacing:'.1em',color:'#E8B84B',marginBottom:2}}>{cur.name}</div>
-                  <div className="fm" style={{fontSize:9,color:'#4A3A18'}}>{cur.state} · {cur.river}</div>
-                </div>
-                <span className="bdg bdg-gold">{cur.accuracy_pct}%</span>
-              </div>
-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,marginBottom:10}}>
-                {[['PEAK YEAR',cur.peak_year,'#C9962A'],['PEAK AREA',`${cur.peak_flood_km2?.toLocaleString()} km²`,'#E87070'],['CHRONIC AREA',`${cur.chronic_km2?.toLocaleString()} km²`,'#E8B84B'],['AT RISK',`${(cur.chronic_pop/1e6).toFixed(1)}M`,'#C9962A']].map(([l,v,c])=>(
-                  <div key={l} className="stat">
-                    <div className="fm" style={{fontSize:8,color:'#3A2D10',letterSpacing:'.12em',marginBottom:2}}>{l}</div>
-                    <div className="fm" style={{fontSize:13,color:c,fontWeight:700}}>{v}</div>
-                  </div>
-                ))}
-              </div>
-              <div className="fm" style={{fontSize:8,color:'#3A2D10',marginBottom:4}}>SEASONAL RISK — {season.replace('_',' ').toUpperCase()}</div>
-              <div style={{height:3,background:'#111',marginBottom:8}}>
-                <div style={{height:'100%',width:`${(cur.seasonal_risk||0)*100}%`,background:'linear-gradient(90deg,#8B651566,#C9962A)',boxShadow:'0 0 8px rgba(201,150,42,.4)',transition:'width .6s'}}/>
-              </div>
-              {cur.high_risk_zones?.map(z=>(
-                <div key={z} style={{display:'flex',alignItems:'center',gap:5,marginBottom:3}}>
-                  <div style={{width:3,height:3,background:'#E87070',flexShrink:0}}/>
-                  <span className="fm" style={{fontSize:9,color:'#7A6830'}}>{z}</span>
-                </div>
-              ))}
-            </DC>
-          )}
+          {/* India map — always visible */}
+          <IndiaMap mapData={map} region={region} setRegion={setRegion} season={season}/>
 
-          {/* Tasks */}
+          {/* Task cards */}
           <div>
             <div className="fm" style={{fontSize:8,color:'#3A2D10',letterSpacing:'.15em',marginBottom:7}}>◈ TASKS</div>
             {Object.entries(TM).map(([id,m])=>(
-              <div key={id} className={`card ${task===id?'card-active':''}`} onClick={()=>{setTask(id);setTab('demo');}}
+              <div key={id} className={`card ${task===id?'card-active':''}`}
+                onClick={()=>{setTask(id);setActiveTab('demo');}}
                 style={{padding:'11px 13px',marginBottom:5,cursor:'pointer',transition:'all .15s',borderColor:task===id?`${m.color}44`:'rgba(201,150,42,.1)'}}>
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:3}}>
                   <span className="fb" style={{fontSize:13,fontWeight:700,color:task===id?m.color:'#D4C89A'}}>{m.label}</span>
@@ -462,10 +596,44 @@ function App(){
             ))}
           </div>
 
-          {/* Results */}
+          {/* Training results */}
           <DC>
             <div className="fm" style={{fontSize:8,color:'#4A3A18',letterSpacing:'.15em',marginBottom:11}}>◈ TRAINING RESULTS</div>
-            {[['BASELINE',[0.01,0.01,0.01],'#3A2D10'],['SFT 1.5B',[0.65,null,null],'#6B5A30'],['GRPO 1.5B',[0.884,0.688,null],'#C9962A'],['GRPO 3B',[null,0.823,0.842],'#E8B84B'],['4-AGENT',[0.99,0.99,0.70],'#E8B84B']].map(([l,v,c])=>(
+            <button onClick={()=>{
+              const data = {
+                training_pipeline: {
+                  sft: {model:"Qwen2.5-1.5B-Instruct",epochs:38,loss_start:2.717,loss_end:0.017},
+                  grpo_1_5b_easy: {task:"flood_year_comparison",steps:100,reward_start:0.855,reward_end:0.884},
+                  grpo_1_5b_medium: {task:"district_inundation_report",steps:400,reward_start:0.489,reward_end:0.688},
+                  grpo_3b_medium: {task:"district_inundation_report",steps:300,reward_start:0.670,reward_end:0.823},
+                  grpo_3b_hard: {task:"flood_risk_forecast",steps:210,reward_start:0.728,reward_end:0.842},
+                },
+                four_agent_results: {
+                  flood_year_comparison:0.99,
+                  district_inundation_report:0.99,
+                  flood_risk_forecast:0.70,
+                  precision:1.0, recall:1.0, f1:1.0
+                },
+                models:{
+                  sft:"https://huggingface.co/LunaAmagi/chronostasis-sft-trained",
+                  grpo_3b_medium:"https://huggingface.co/LunaAmagi/chronostasis-3b-grpo-medium",
+                  grpo_3b_hard:"https://huggingface.co/LunaAmagi/chronostasis-3b-grpo-hard",
+                },
+                environment:"https://huggingface.co/spaces/LunaAmagi/chronostasis",
+                basins:15,regions:["brahmaputra","ganga","mahanadi","krishna","godavari","narmada","tapti","cauvery","damodar","sabarmati","mahi","baitarani","subarnarekha","indus","luni"]
+              };
+              const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+              const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+              a.download='chronostasis_results.json';a.click();
+            }}
+            style={{marginTop:8,width:'100%',padding:'6px',background:'rgba(201,150,42,.08)',border:'1px solid rgba(201,150,42,.25)',color:'#C9962A',fontFamily:"'Share Tech Mono',monospace",fontSize:9,letterSpacing:'.1em',cursor:'pointer',textTransform:'uppercase'}}
+            >⬇ DOWNLOAD RESULTS JSON</button>
+            {[['BASELINE',[0.01,0.01,0.01],'#3A2D10'],
+              ['SFT 1.5B',[0.65,null,null],'#6B5A30'],
+              ['GRPO 1.5B',[0.884,0.688,null],'#C9962A'],
+              ['GRPO 3B',[null,0.823,0.842],'#E8B84B'],
+              ['4-AGENT',[0.99,0.99,0.70],'#E8B84B'],
+            ].map(([l,v,c])=>(
               <div key={l} style={{marginBottom:7}}>
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:2}}>
                   <span className="fm" style={{fontSize:9,color:c}}>{l}</span>
@@ -486,26 +654,17 @@ function App(){
           {/* Links */}
           <DC>
             <div className="fm" style={{fontSize:8,color:'#4A3A18',letterSpacing:'.15em',marginBottom:9}}>◈ RESOURCES</div>
-            {[['GitHub','lunasingha1928-oss/Chronostasis','https://github.com/lunasingha1928-oss/Chronostasis'],['HF Space','LunaAmagi/chronostasis','https://huggingface.co/spaces/LunaAmagi/chronostasis'],['SFT Model','chronostasis-sft-trained','https://huggingface.co/LunaAmagi/chronostasis-sft-trained'],['3B Model','chronostasis-3b-grpo-medium','https://huggingface.co/LunaAmagi/chronostasis-3b-grpo-medium'],['API Docs','/docs','/docs']].map(([l,t,h])=>(
-              <a key={l} href={h} target="_blank" rel="noopener" style={{display:'flex',alignItems:'center',gap:7,marginBottom:5,textDecoration:'none',padding:'3px 0'}}>
+            {[['GitHub','lunasingha1928-oss/Chronostasis','https://github.com/lunasingha1928-oss/Chronostasis'],
+              ['HF Space','LunaAmagi/chronostasis','https://huggingface.co/spaces/LunaAmagi/chronostasis'],
+              ['3B Model','chronostasis-3b-grpo-medium','https://huggingface.co/LunaAmagi/chronostasis-3b-grpo-medium'],
+              ['API Docs','/docs','/docs'],
+            ].map(([l,t,h])=>(
+              <a key={l} href={h} target="_blank" rel="noopener"
+                style={{display:'flex',alignItems:'center',gap:7,marginBottom:5,textDecoration:'none',padding:'2px 0'}}>
                 <div style={{width:3,height:3,background:'#4A3A18',flexShrink:0}}/>
-                <span className="fm" style={{fontSize:9,color:'#4A3A18',minWidth:55}}>{l}</span>
+                <span className="fm" style={{fontSize:9,color:'#4A3A18',minWidth:52}}>{l}</span>
                 <span className="fm" style={{fontSize:9,color:'#3A2D10'}}>{t}</span>
               </a>
-            ))}
-          </DC>
-
-          {/* Data sources */}
-          <DC>
-            <div className="fm" style={{fontSize:8,color:'#4A3A18',letterSpacing:'.15em',marginBottom:9}}>◈ DATA SOURCES</div>
-            {[['Sentinel-1 SAR VV','2022–2024 Jun–Sep'],['CHIRPS Daily','Ground-calibrated rainfall'],['HydroSHEDS 15ACC','Flow accumulation'],['SRTM DEM','Elevation & slope'],['Landsat 8 NDWI','Permanent water mask'],['FAO GAUL','District boundaries'],['WorldPop 2020','Population density']].map(([s,d])=>(
-              <div key={s} style={{display:'flex',gap:7,marginBottom:5}}>
-                <div style={{width:3,height:3,background:'#8B6515',flexShrink:0,marginTop:4}}/>
-                <div>
-                  <div className="fm" style={{fontSize:9,color:'#7A6830'}}>{s}</div>
-                  <div className="fm" style={{fontSize:8,color:'#3A2D10'}}>{d}</div>
-                </div>
-              </div>
             ))}
           </DC>
         </div>

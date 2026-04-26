@@ -24,6 +24,7 @@ from pydantic import BaseModel, Field
 from openai import OpenAI
 
 from tasks import TASK_REGISTRY, REGIONS, DEFAULT_REGION, BaseTask
+from gee_codegen import generate_gee_code, generate_multi_basin_comparison_code
 from renderer import render_flood_report
 
 
@@ -860,6 +861,83 @@ async def list_seasons():
             {"id": "rabi",         "label": "Rabi",
              "months": "December–February","desc": "Winter season, minimal flood risk"},
         ]
+    }
+
+
+# ─────────────────────────────────────────────────────────
+# GEE CODE DOWNLOAD ENDPOINTS
+# ─────────────────────────────────────────────────────────
+
+@app.get("/gee/code")
+async def gee_code(region_id: str = "brahmaputra", year: int = 2022):
+    """
+    Returns downloadable GEE JavaScript for SAR flood analysis.
+    Paste into code.earthengine.google.com to run.
+    """
+    if region_id not in REGIONS:
+        raise HTTPException(400, f"Unknown region: {region_id}. "
+                            f"Available: {list(REGIONS.keys())}")
+    if year not in [2022, 2023, 2024]:
+        raise HTTPException(400, "Year must be 2022, 2023, or 2024")
+
+    region = REGIONS[region_id]
+    code   = generate_gee_code(region_id, region, year)
+
+    from fastapi.responses import Response
+    filename = f"chronostasis_{region_id}_flood_{year}.js"
+    return Response(
+        content=code,
+        media_type="application/javascript",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "X-Region":  region_id,
+            "X-Year":    str(year),
+            "X-Basin":   region["name"],
+        }
+    )
+
+
+@app.get("/gee/code/all")
+async def gee_code_all():
+    """
+    Returns downloadable GEE JavaScript for all 15 basins comparison.
+    Single script showing all-India risk map.
+    """
+    code = generate_multi_basin_comparison_code(REGIONS)
+
+    from fastapi.responses import Response
+    return Response(
+        content=code,
+        media_type="application/javascript",
+        headers={
+            "Content-Disposition": 'attachment; filename="chronostasis_all_india_flood.js"',
+        }
+    )
+
+
+@app.get("/gee/info")
+async def gee_info():
+    """Returns info about available GEE code downloads."""
+    return {
+        "description": "Download GEE JavaScript for SAR flood analysis",
+        "usage": "Paste downloaded .js file into code.earthengine.google.com",
+        "endpoints": {
+            "single_basin": "/gee/code?region_id={region_id}&year={year}",
+            "all_basins":   "/gee/code/all",
+        },
+        "available_regions": list(REGIONS.keys()),
+        "available_years":   [2022, 2023, 2024],
+        "layers_included": [
+            "Sentinel-1 SAR VV monsoon composite",
+            "Flood extent mask (per year)",
+            "Chronic inundation (all 3 years)",
+            "CHIRPS rainfall overlay",
+            "SRTM DEM + slope",
+            "HydroSHEDS flow accumulation",
+            "Multi-factor risk zones (high/moderate/low)",
+            "Export-ready GeoTIFF scripts",
+        ],
+        "example": "/gee/code?region_id=brahmaputra&year=2022",
     }
 
 
