@@ -29,6 +29,8 @@ from gee_client import (init_gee as init_gee_client, gee_available,
                          get_stats_or_mock, get_flood_tile_url,
                          query_any_location)
 from renderer import render_flood_report
+from dotenv import load_dotenv
+load_dotenv()
 
 
 # ─────────────────────────────────────────────────────────
