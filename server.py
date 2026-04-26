@@ -25,7 +25,9 @@ from openai import OpenAI
 
 from tasks import TASK_REGISTRY, REGIONS, DEFAULT_REGION, BaseTask
 from gee_codegen import generate_gee_code, generate_multi_basin_comparison_code
+from gee_codegen import get_script, get_all_india_script, list_regions
 from renderer import render_flood_report
+
 
 
 # ─────────────────────────────────────────────────────────
@@ -939,7 +941,18 @@ async def gee_info():
         ],
         "example": "/gee/code?region_id=brahmaputra&year=2022",
     }
+@app.get("/gee/code")
+async def gee_code(region_id: str = "brahmaputra"):
+    script = get_script(region_id)
+    filename = f"chronostasis_gee_{region_id}.js"
+    return Response(content=script, media_type="application/javascript",
+                    headers={"Content-Disposition": f"attachment; filename={filename}"})
 
+@app.get("/gee/code/all")
+async def gee_code_all():
+    script = get_all_india_script()
+    return Response(content=script, media_type="application/javascript",
+                    headers={"Content-Disposition": "attachment; filename=chronostasis_gee_all_india.js"})
 
 if __name__ == "__main__":
     import uvicorn
