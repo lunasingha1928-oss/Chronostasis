@@ -63,14 +63,14 @@ except ImportError:
 
 GEE_PROJECT      = os.getenv("GEE_PROJECT", "chronostasis-gee")
 
-# ── LLM: trained RL model (primary) → HF router (fallback) ───────────────
-HF_TOKEN         = os.getenv("HF_TOKEN", "")
-TRAINED_MODEL    = os.getenv("TRAINED_MODEL", "LunaAmagi/chronostasis-3b-grpo-medium")
-BASE_MODEL       = os.getenv("BASE_MODEL",    "Qwen/Qwen2.5-72B-Instruct")
-USE_TRAINED      = os.getenv("USE_TRAINED_MODEL", "true").lower() != "false"
-MODEL_NAME       = TRAINED_MODEL if USE_TRAINED else BASE_MODEL
-HF_ROUTER_URL    = "https://router.huggingface.co/v1"
-HF_INFERENCE_URL = "https://api-inference.huggingface.co/v1"
+# ── LLM: trained RL model endpoint (primary) → HF router (fallback) ──────
+HF_TOKEN              = os.getenv("HF_TOKEN", "")
+TRAINED_MODEL         = os.getenv("TRAINED_MODEL", "LunaAmagi/chronostasis-3b-merged")
+TRAINED_MODEL_ENDPOINT = os.getenv("TRAINED_MODEL_ENDPOINT", "").rstrip("/")
+BASE_MODEL            = os.getenv("BASE_MODEL", "Qwen/Qwen2.5-72B-Instruct")
+USE_TRAINED           = os.getenv("USE_TRAINED_MODEL", "true").lower() != "false"
+MODEL_NAME            = TRAINED_MODEL if USE_TRAINED else BASE_MODEL
+HF_ROUTER_URL         = "https://router.huggingface.co/v1"
 
 # ──────────────────────────────────────────────
 # GEE INIT
@@ -83,13 +83,12 @@ def init_gee():
             project=GEE_PROJECT,
             sa_json=os.getenv("GEE_SERVICE_ACCOUNT_JSON")
         )
-    # Inline fallback
     sa_json = os.getenv("GEE_SERVICE_ACCOUNT_JSON")
     try:
         if sa_json:
             key_data = sa_json if isinstance(sa_json, dict) else json.loads(sa_json)
             credentials = ee.ServiceAccountCredentials(
-                email=key_data.get("client_email"), key_data=key_data)
+                email=key_data.get("client_email"), key_data=json.dumps(key_data))
             ee.Initialize(credentials, project=GEE_PROJECT)
         else:
             ee.Initialize(project=GEE_PROJECT)
@@ -105,10 +104,15 @@ GEE_AVAILABLE = init_gee()
 # ──────────────────────────────────────────────
 
 def call_trained_model(messages: list, max_tokens: int = 350) -> str:
-    """Call the trained RL model directly via HF Inference API."""
-    client = OpenAI(base_url=HF_INFERENCE_URL, api_key=HF_TOKEN)
+    """Call the merged trained model via its dedicated HF Inference Endpoint."""
+    if not TRAINED_MODEL_ENDPOINT:
+        raise ValueError("TRAINED_MODEL_ENDPOINT secret not set in HF Space")
+    client = OpenAI(
+        base_url=f"{TRAINED_MODEL_ENDPOINT}/v1",
+        api_key=HF_TOKEN
+    )
     completion = client.chat.completions.create(
-        model=TRAINED_MODEL,
+        model="tgi",          # HF TGI endpoints always use 'tgi' as model name
         messages=messages,
         max_tokens=max_tokens,
         temperature=0.3,
@@ -129,16 +133,16 @@ def call_base_model(messages: list, max_tokens: int = 350) -> str:
 
 
 def call_llm(messages: list, max_tokens: int = 350) -> str:
-    """Smart dispatcher: trained model first, base model fallback."""
+    """Smart dispatcher: trained endpoint first, base model fallback."""
     if not HF_TOKEN:
         raise ValueError("HF_TOKEN not set — add it to .env or HF Space secrets")
-    if USE_TRAINED:
+    if USE_TRAINED and TRAINED_MODEL_ENDPOINT:
         try:
             result = call_trained_model(messages, max_tokens)
             if result:
                 return result
         except Exception as e:
-            print(f"[WARN] Trained model failed ({e}), falling back to base", flush=True)
+            print(f"[WARN] Trained endpoint failed ({e}), falling back to base", flush=True)
     return call_base_model(messages, max_tokens)
 
 
@@ -349,14 +353,11 @@ async def state():
 
 @app.post("/agent/step")
 async def agent_step(request: AgentStepRequest = AgentStepRequest()):
-    """
-    4-agent debate pipeline using trained RL model.
-    Agents: Data Analyst → Domain Expert → Critic → Aggregator.
-    """
+    """4-agent debate pipeline using trained RL model endpoint."""
     global _current_episode
 
     if not HF_TOKEN:
-        raise HTTPException(503, "HF_TOKEN not configured. Add to .env or HF Space secrets.")
+        raise HTTPException(503, "HF_TOKEN not configured.")
 
     task_id   = request.task_id   or "flood_year_comparison"
     region_id = request.region_id or DEFAULT_REGION
@@ -366,7 +367,6 @@ async def agent_step(request: AgentStepRequest = AgentStepRequest()):
     if region_id not in REGIONS:
         raise HTTPException(400, f"Unknown region: {region_id}")
 
-    # Reuse or create episode
     if (_current_episode is None
             or _current_episode.done
             or _current_episode.task.task_id != task_id
@@ -411,7 +411,6 @@ async def agent_step(request: AgentStepRequest = AgentStepRequest()):
     )
 
     try:
-        # Agent 1 — Data Analyst
         a1 = call_llm([
             {"role": "system", "content": sys_msg},
             {"role": "user",   "content": task_prompt +
@@ -419,7 +418,6 @@ async def agent_step(request: AgentStepRequest = AgentStepRequest()):
              "Identify the peak year with justification."}
         ], max_tokens=200)
 
-        # Agent 2 — Domain Expert
         a2 = call_llm([
             {"role": "system", "content": sys_msg},
             {"role": "user",   "content": task_prompt +
@@ -428,30 +426,26 @@ async def agent_step(request: AgentStepRequest = AgentStepRequest()):
              "and HydroSHEDS flow accumulation analysis."}
         ], max_tokens=200)
 
-        # Agent 3 — Critic
         a3 = call_llm([
             {"role": "system", "content": sys_msg},
             {"role": "user",   "content":
              f"Review these flood analysis responses and identify any missing data, "
              f"vague claims, or unsupported statements:\n\nAnalysis 1: {a1[:300]}\n"
-             f"Analysis 2: {a2[:300]}\n\nList specific gaps that need addressing."}
+             f"Analysis 2: {a2[:300]}\n\nList specific gaps."}
         ], max_tokens=150)
 
-        # Agent 4 — Aggregator
         final = call_llm([
             {"role": "system", "content": sys_msg},
             {"role": "user",   "content":
-             f"Synthesise these analyses into one comprehensive response. "
-             f"Address the critic's concerns. Include all exact numbers.\n\n"
+             f"Synthesise into one comprehensive response. Address critic's concerns. "
+             f"Include all exact numbers.\n\n"
              f"Analysis 1: {a1[:300]}\nAnalysis 2: {a2[:300]}\n"
-             f"Critic: {a3[:200]}\n\n"
-             f"Write the final integrated flood analysis."}
+             f"Critic: {a3[:200]}\n\nWrite the final integrated flood analysis."}
         ], max_tokens=350)
 
     except Exception as exc:
         raise HTTPException(502, f"LLM error: {type(exc).__name__}: {str(exc)[:250]}")
 
-    # Grade
     ep.step += 1
     result = ep.task.step(final, ep.step)
     reward = float(result.get("reward", 0) or 0)
@@ -470,6 +464,7 @@ async def agent_step(request: AgentStepRequest = AgentStepRequest()):
         "total_reward":  ep.total_reward,
         "model":         MODEL_NAME,
         "using_trained": USE_TRAINED,
+        "endpoint_used": TRAINED_MODEL_ENDPOINT if USE_TRAINED else HF_ROUTER_URL,
         "task_id":       task_id,
         "region_id":     region_id,
         "agents": {
@@ -501,7 +496,6 @@ async def agent_compare(request: AgentStepRequest = AgentStepRequest()):
     )
 
     sys_msg = "You are a precise GIS flood analyst. Cite exact km² figures, district names, causal factors."
-
     baseline = "Floods in Indian river basins vary by year during monsoon season."
 
     try:
@@ -512,19 +506,18 @@ async def agent_compare(request: AgentStepRequest = AgentStepRequest()):
     except Exception as e:
         trained = f"Error: {e}"
 
-    # Score both
-    task = TASK_REGISTRY[task_id](gee_available=GEE_AVAILABLE, region=region_id)
-    baseline_score = float(task.step(baseline,  1).get("reward", 0))
-    task2          = TASK_REGISTRY[task_id](gee_available=GEE_AVAILABLE, region=region_id)
-    trained_score  = float(task2.step(trained, 1).get("reward", 0))
+    task  = TASK_REGISTRY[task_id](gee_available=GEE_AVAILABLE, region=region_id)
+    task2 = TASK_REGISTRY[task_id](gee_available=GEE_AVAILABLE, region=region_id)
+    baseline_score = float(task.step(baseline, 1).get("reward", 0))
+    trained_score  = float(task2.step(trained,  1).get("reward", 0))
 
     return {
-        "task_id":        task_id,
-        "region_id":      region_id,
-        "baseline":       {"response": baseline, "reward": baseline_score},
-        "trained":        {"response": trained,  "reward": trained_score},
-        "improvement":    round(trained_score - baseline_score, 3),
-        "model":          MODEL_NAME,
+        "task_id":     task_id,
+        "region_id":   region_id,
+        "baseline":    {"response": baseline, "reward": baseline_score},
+        "trained":     {"response": trained,  "reward": trained_score},
+        "improvement": round(trained_score - baseline_score, 3),
+        "model":       MODEL_NAME,
     }
 
 
@@ -534,7 +527,6 @@ async def agent_compare(request: AgentStepRequest = AgentStepRequest()):
 
 @app.post("/query/location")
 async def query_location(req: LocationRequest):
-    """Query real GEE data for any lat/lon point in India."""
     result = query_any_location(req.lat, req.lon, req.radius_km)
     tiles  = get_flood_tile_url(req.lat, req.lon, req.year, req.radius_km * 2)
     result["tiles"] = tiles.get("tiles", {})
@@ -543,59 +535,49 @@ async def query_location(req: LocationRequest):
 
 @app.get("/query/tiles")
 async def query_tiles(lat: float, lon: float, year: int = 2022, radius_km: float = 200):
-    """Get Leaflet tile URLs for flood risk visualization."""
     return get_flood_tile_url(lat, lon, year, radius_km)
 
 
 @app.get("/gee/code")
 async def gee_code(region_id: str = "brahmaputra", year: int = 2022):
-    """Download GEE JavaScript flood analysis script for a basin."""
     if region_id not in REGIONS:
         raise HTTPException(400, f"Unknown region: {region_id}")
     code = generate_gee_code(region_id, REGIONS[region_id], year)
     from fastapi.responses import Response
-    return Response(
-        content=code,
-        media_type="application/javascript",
-        headers={"Content-Disposition": f'attachment; filename="chronostasis_{region_id}_{year}.js"'}
-    )
+    return Response(content=code, media_type="application/javascript",
+        headers={"Content-Disposition": f'attachment; filename="chronostasis_{region_id}_{year}.js"'})
 
 
 @app.get("/gee/code/all")
 async def gee_code_all():
-    """Download GEE script covering all 15 Indian river basins."""
     code = generate_multi_basin_comparison_code(REGIONS)
     from fastapi.responses import Response
-    return Response(
-        content=code,
-        media_type="application/javascript",
-        headers={"Content-Disposition": 'attachment; filename="chronostasis_all_india.js"'}
-    )
+    return Response(content=code, media_type="application/javascript",
+        headers={"Content-Disposition": 'attachment; filename="chronostasis_all_india.js"'})
 
 
 @app.get("/india_risk_map")
 async def india_risk_map(season: str = "kharif"):
-    """Returns flood risk data for all regions — for map visualization."""
     season_multipliers = {
-        "kharif":      {"brahmaputra": 0.95, "ganga": 0.88, "mahanadi": 0.82, "krishna": 0.75, "godavari": 0.79},
-        "pre-monsoon": {"brahmaputra": 0.45, "ganga": 0.38, "mahanadi": 0.35, "krishna": 0.28, "godavari": 0.32},
-        "post-monsoon":{"brahmaputra": 0.60, "ganga": 0.55, "mahanadi": 0.50, "krishna": 0.42, "godavari": 0.48},
-        "rabi":        {"brahmaputra": 0.10, "ganga": 0.12, "mahanadi": 0.08, "krishna": 0.05, "godavari": 0.07},
+        "kharif":       {"brahmaputra": 0.95, "ganga": 0.88, "mahanadi": 0.82, "krishna": 0.75, "godavari": 0.79},
+        "pre-monsoon":  {"brahmaputra": 0.45, "ganga": 0.38, "mahanadi": 0.35, "krishna": 0.28, "godavari": 0.32},
+        "post-monsoon": {"brahmaputra": 0.60, "ganga": 0.55, "mahanadi": 0.50, "krishna": 0.42, "godavari": 0.48},
+        "rabi":         {"brahmaputra": 0.10, "ganga": 0.12, "mahanadi": 0.08, "krishna": 0.05, "godavari": 0.07},
     }
     mults = season_multipliers.get(season, season_multipliers["kharif"])
     return {
         rid: {
-            "name":         r["name"],
-            "state":        r["state"],
-            "river":        r["river"],
-            "lat":          r.get("lat", 26.0),
-            "lon":          r.get("lon", 90.0),
-            "risk_level":   "high" if r["risk_zones_km2"]["high"] > 3000 else "moderate",
+            "name":          r["name"],
+            "state":         r["state"],
+            "river":         r["river"],
+            "lat":           r.get("lat", 26.0),
+            "lon":           r.get("lon", 90.0),
+            "risk_level":    "high" if r["risk_zones_km2"]["high"] > 3000 else "moderate",
             "seasonal_risk": mults.get(rid, 0.5),
-            "peak_year":    r["peak_year"],
-            "accuracy_pct": r["accuracy_pct"],
-            "chronic_pop":  r["chronic_pop"],
-            "flood_areas":  {str(k): v for k, v in r["flood_areas"].items()},
+            "peak_year":     r["peak_year"],
+            "accuracy_pct":  r["accuracy_pct"],
+            "chronic_pop":   r["chronic_pop"],
+            "flood_areas":   {str(k): v for k, v in r["flood_areas"].items()},
         }
         for rid, r in REGIONS.items()
     }
@@ -603,46 +585,35 @@ async def india_risk_map(season: str = "kharif"):
 
 @app.get("/seasons")
 async def seasons():
-    return {
-        "seasons": [
-            {"id": "pre-monsoon",  "name": "Pre-Monsoon",   "months": "Mar–May",  "risk": "moderate"},
-            {"id": "kharif",       "name": "Kharif Monsoon","months": "Jun–Sep",  "risk": "high"},
-            {"id": "post-monsoon", "name": "Post-Monsoon",  "months": "Oct–Nov",  "risk": "moderate-low"},
-            {"id": "rabi",         "name": "Rabi / Winter", "months": "Dec–Feb",  "risk": "low"},
-        ]
-    }
+    return {"seasons": [
+        {"id": "pre-monsoon",  "name": "Pre-Monsoon",    "months": "Mar–May", "risk": "moderate"},
+        {"id": "kharif",       "name": "Kharif Monsoon", "months": "Jun–Sep", "risk": "high"},
+        {"id": "post-monsoon", "name": "Post-Monsoon",   "months": "Oct–Nov", "risk": "moderate-low"},
+        {"id": "rabi",         "name": "Rabi / Winter",  "months": "Dec–Feb", "risk": "low"},
+    ]}
 
 
 @app.get("/model/info")
 async def model_info():
     return {
-        "trained_model":   TRAINED_MODEL,
-        "base_model":      BASE_MODEL,
-        "active_model":    MODEL_NAME,
-        "using_trained":   USE_TRAINED,
-        "hf_token_set":    bool(HF_TOKEN),
-        "trained_models": [
-            "LunaAmagi/chronostasis-sft-trained",
-            "LunaAmagi/chronostasis-3b-grpo-medium",
-            "LunaAmagi/chronostasis-3b-grpo-hard",
-        ]
+        "trained_model":    TRAINED_MODEL,
+        "base_model":       BASE_MODEL,
+        "active_model":     MODEL_NAME,
+        "using_trained":    USE_TRAINED,
+        "endpoint_set":     bool(TRAINED_MODEL_ENDPOINT),
+        "endpoint_url":     TRAINED_MODEL_ENDPOINT or "not set",
+        "hf_token_set":     bool(HF_TOKEN),
     }
 
-
-# ──────────────────────────────────────────────
-# META ENDPOINTS
-# ──────────────────────────────────────────────
 
 @app.get("/regions")
 async def list_regions():
     return [
-        {
-            "id": rid, "name": r["name"], "state": r["state"],
-            "river": r["river"], "peak_year": r["peak_year"],
-            "accuracy_pct": r["accuracy_pct"],
-            "flood_areas": {str(k): v for k, v in r["flood_areas"].items()},
-            "lat": r.get("lat", 26.0), "lon": r.get("lon", 90.0),
-        }
+        {"id": rid, "name": r["name"], "state": r["state"],
+         "river": r["river"], "peak_year": r["peak_year"],
+         "accuracy_pct": r["accuracy_pct"],
+         "flood_areas": {str(k): v for k, v in r["flood_areas"].items()},
+         "lat": r.get("lat", 26.0), "lon": r.get("lon", 90.0)}
         for rid, r in REGIONS.items()
     ]
 
@@ -652,10 +623,8 @@ async def list_tasks():
     tasks = []
     for tid, tcls in TASK_REGISTRY.items():
         t = tcls(gee_available=GEE_AVAILABLE, region=DEFAULT_REGION)
-        tasks.append({
-            "id": tid, "name": t.name, "description": t.description,
-            "difficulty": t.difficulty, "max_steps": t.max_steps,
-        })
+        tasks.append({"id": tid, "name": t.name, "description": t.description,
+                      "difficulty": t.difficulty, "max_steps": t.max_steps})
     return tasks
 
 
@@ -665,19 +634,19 @@ async def report():
     region_id = ep.region_id if ep else DEFAULT_REGION
     r = REGIONS[region_id]
     return {
-        "region_id":       region_id,
-        "region_name":     r["name"],
-        "state":           r["state"],
-        "river":           r["river"],
-        "flood_areas":     {str(k): v for k, v in r["flood_areas"].items()},
-        "peak_year":       r["peak_year"],
-        "chronic_km2":     r["chronic_km2"],
-        "chronic_pop":     r["chronic_pop"],
+        "region_id":         region_id,
+        "region_name":       r["name"],
+        "state":             r["state"],
+        "river":             r["river"],
+        "flood_areas":       {str(k): v for k, v in r["flood_areas"].items()},
+        "peak_year":         r["peak_year"],
+        "chronic_km2":       r["chronic_km2"],
+        "chronic_pop":       r["chronic_pop"],
         "chronic_districts": r["chronic_districts"],
-        "high_risk_zones": r["high_risk_zones"],
-        "accuracy_pct":    r["accuracy_pct"],
-        "risk_zones_km2":  r["risk_zones_km2"],
-        "peak_rainfall_mm": r["peak_rainfall_mm"],
+        "high_risk_zones":   r["high_risk_zones"],
+        "accuracy_pct":      r["accuracy_pct"],
+        "risk_zones_km2":    r["risk_zones_km2"],
+        "peak_rainfall_mm":  r["peak_rainfall_mm"],
         "episode": {
             "task_id":      ep.task.task_id,
             "total_reward": ep.total_reward,
@@ -686,14 +655,9 @@ async def report():
             "history":      ep.history,
         } if ep else None,
         "all_regions_summary": [
-            {
-                "id":            rid,
-                "name":          rv["name"],
-                "peak_year":     rv["peak_year"],
-                "peak_flood_km2": rv["flood_areas"][rv["peak_year"]],
-                "chronic_km2":   rv["chronic_km2"],
-                "accuracy_pct":  rv["accuracy_pct"],
-            }
+            {"id": rid, "name": rv["name"], "peak_year": rv["peak_year"],
+             "peak_flood_km2": rv["flood_areas"][rv["peak_year"]],
+             "chronic_km2": rv["chronic_km2"], "accuracy_pct": rv["accuracy_pct"]}
             for rid, rv in REGIONS.items()
         ]
     }
@@ -718,15 +682,16 @@ async def render(request: ResetRequest = ResetRequest()):
 @app.get("/health")
 async def health():
     return {
-        "status":             "ok",
-        "version":            "2.1.0",
-        "gee_available":      GEE_AVAILABLE,
-        "llm_configured":     bool(HF_TOKEN),
+        "status":              "ok",
+        "version":             "2.1.0",
+        "gee_available":       GEE_AVAILABLE,
+        "llm_configured":      bool(HF_TOKEN),
         "using_trained_model": USE_TRAINED,
-        "agent_model":        MODEL_NAME,
-        "trained_model":      TRAINED_MODEL,
-        "regions":            list(REGIONS.keys()),
-        "tasks":              list(TASK_REGISTRY.keys()),
+        "trained_endpoint_set": bool(TRAINED_MODEL_ENDPOINT),
+        "agent_model":         MODEL_NAME,
+        "trained_model":       TRAINED_MODEL,
+        "regions":             list(REGIONS.keys()),
+        "tasks":               list(TASK_REGISTRY.keys()),
     }
 
 
