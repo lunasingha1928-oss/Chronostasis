@@ -1,83 +1,75 @@
 """
-multi_agent_inference.py — Chronostasis Multi-Agent Flood Intelligence System
-==============================================================================
+inference.py — Chronostasis 4-Agent Flood Intelligence System
+=============================================================
+Uses the trained RL model (chronostasis-3b-grpo-medium) via HF Inference API.
+Falls back to base Qwen2.5-72B if trained model is unavailable.
 
-HOW THIS WORKS (beginner explanation):
----------------------------------------
-Instead of ONE AI answering each flood question, we use FOUR specialized agents
-that work together like a team of experts:
-
-  Agent 1 - DATA ANALYST   → focuses on exact numbers (km², rainfall stats)
-  Agent 2 - DOMAIN EXPERT  → focuses on district names, causes, GIS knowledge
-  Agent 3 - CRITIC         → reads both answers and finds missing pieces
-  Agent 4 - AGGREGATOR     → combines everything into one perfect final answer
-
-Only the AGGREGATOR's answer gets sent to the environment (/step).
-This maximizes reward because all criteria get covered.
-
-STDOUT format (same as original inference.py — don't change):
-[START] task=<task> env=<benchmark> model=<model>
-[STEP] step=<n> action=<action> reward=<0.00> done=<true|false> error=<msg|null>
-[END] success=<true|false> steps=<n> score=<0.000> rewards=<r1,r2,...>
+Agent pipeline:
+  Agent 1 (Data Analyst)   → exact km², rainfall, population figures
+  Agent 2 (Domain Expert)  → district names, causal GIS factors
+  Agent 3 (Critic)         → finds gaps before submission
+  Agent 4 (Aggregator)     → combines all into final answer → /step
 """
 
 import asyncio
 import json
 import os
+import time
 import urllib.request
 import urllib.error
 from typing import List, Optional
 from openai import OpenAI
 
 
-# ──────────────────────────────────────────────────────────
-# CONFIGURATION (same as original inference.py)
-# ──────────────────────────────────────────────────────────
-
-API_KEY      = os.getenv("HF_TOKEN") or os.getenv("API_KEY", "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")
-API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
-MODEL_NAME   = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct")
+# ── Configuration ──────────────────────────────────────────────────────────
+HF_TOKEN     = os.getenv("HF_TOKEN") or os.getenv("API_KEY", "")
 ENV_BASE_URL = os.getenv("ENV_BASE_URL", "https://LunaAmagi-chronostasis.hf.space")
 BENCHMARK    = os.getenv("CHRONOSTASIS_BENCH", "chronostasis")
 REGION_ID    = os.getenv("CHRONOSTASIS_REGION", "brahmaputra")
+
+# Model selection
+# Priority: trained RL model → base model fallback
+TRAINED_MODEL   = os.getenv("TRAINED_MODEL",  "LunaAmagi/chronostasis-3b-grpo-medium")
+BASE_MODEL      = os.getenv("BASE_MODEL",     "Qwen/Qwen2.5-72B-Instruct")
+USE_TRAINED     = os.getenv("USE_TRAINED_MODEL", "true").lower() != "false"
+MODEL_NAME      = TRAINED_MODEL if USE_TRAINED else BASE_MODEL
+
+# HF Inference API for trained model
+HF_INFERENCE_URL = f"https://api-inference.huggingface.co/models/{TRAINED_MODEL}"
+
+# HF Router for base model (OpenAI-compatible)
+HF_ROUTER_URL   = "https://router.huggingface.co/v1"
 
 ALL_TASKS = [
     "flood_year_comparison",
     "district_inundation_report",
     "flood_risk_forecast",
 ]
-
 TASK_NAME             = os.getenv("MY_ENV_V4_TASK", ALL_TASKS[0])
 MAX_STEPS             = 8
-TEMPERATURE           = 0.3
-MAX_TOKENS            = 400
+TEMPERATURE           = 0.2        # lower = more deterministic for trained model
+MAX_TOKENS            = 350
 SUCCESS_SCORE_THRESHOLD = 0.5
 
 
-# ──────────────────────────────────────────────────────────
-# STDOUT LOGGING (identical to original — required format)
-# ──────────────────────────────────────────────────────────
-
-def log_start(task: str, env: str, model: str) -> None:
+# ── Logging ────────────────────────────────────────────────────────────────
+def log_start(task, env, model):
     print(f"[START] task={task} env={env} model={model}", flush=True)
 
-def log_step(step: int, action: str, reward: float, done: bool, error: Optional[str]) -> None:
+def log_step(step, action, reward, done, error):
     action_clean = action.replace("\n", " ").replace("\r", "").strip()[:200]
-    error_val = error if error else "null"
     print(f"[STEP] step={step} action={action_clean!r} "
-          f"reward={reward:.2f} done={str(done).lower()} error={error_val}", flush=True)
+          f"reward={reward:.2f} done={str(done).lower()} "
+          f"error={error if error else 'null'}", flush=True)
 
-def log_end(success: bool, steps: int, score: float, rewards: List[float]) -> None:
+def log_end(success, steps, score, rewards):
     rewards_str = ",".join(f"{r:.2f}" for r in rewards)
     print(f"[END] success={str(success).lower()} steps={steps} "
           f"score={score:.3f} rewards={rewards_str}", flush=True)
 
 
-# ──────────────────────────────────────────────────────────
-# HTTP CLIENT (identical to original)
-# ──────────────────────────────────────────────────────────
-
-def env_request(path: str, method: str = "GET", body: dict = None) -> dict:
+# ── HTTP Environment Client ────────────────────────────────────────────────
+def env_request(path, method="GET", body=None):
     url  = ENV_BASE_URL.rstrip("/") + path
     data = json.dumps(body or {}).encode()
     req  = urllib.request.Request(
@@ -91,18 +83,14 @@ def env_request(path: str, method: str = "GET", body: dict = None) -> dict:
     except Exception as ex:
         return {"error": str(ex)}
 
-def env_reset(task_id: str) -> dict:
+def env_reset(task_id):
     return env_request("/reset", "POST", {"task_id": task_id, "region_id": REGION_ID})
 
-def env_step(message: str) -> dict:
+def env_step(message):
     return env_request("/step", "POST", {"message": message})
 
 
-# ──────────────────────────────────────────────────────────
-# FALLBACK RESPONSES
-# (intentionally vague — used only when LLM is unavailable)
-# ──────────────────────────────────────────────────────────
-
+# ── Vague fallbacks (baseline — low reward by design) ─────────────────────
 FALLBACKS = {
     "flood_year_comparison": [
         "Floods in Indian river basins vary by year during monsoon season.",
@@ -119,21 +107,62 @@ FALLBACKS = {
 }
 
 
-# ──────────────────────────────────────────────────────────
-# THE FOUR AGENTS
-# Each agent is just a different instruction (system prompt)
-# sent to the same AI model. Think of it like asking a friend
-# to "wear a different hat" each time.
-# ──────────────────────────────────────────────────────────
+# ── Trained model inference (HF Inference API) ────────────────────────────
+def call_trained_model(prompt: str, max_retries: int = 3) -> str:
+    """
+    Calls the fine-tuned RL model via HF Inference API.
+    The model is hosted at LunaAmagi/chronostasis-3b-grpo-medium.
+    Uses direct text-generation endpoint (not OpenAI-compatible).
+    """
+    headers = {
+        "Authorization": f"Bearer {HF_TOKEN}",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "inputs": prompt,
+        "parameters": {
+            "max_new_tokens":  MAX_TOKENS,
+            "temperature":     TEMPERATURE,
+            "do_sample":       True,
+            "return_full_text": False,
+        },
+    }
 
-def call_llm(client: OpenAI, system_prompt: str, user_prompt: str) -> str:
-    """
-    Helper: sends one message to the AI and gets a response back.
-    Used by all 4 agents — only the system_prompt changes per agent.
-    """
+    for attempt in range(max_retries):
+        try:
+            data = json.dumps(payload).encode()
+            req  = urllib.request.Request(
+                HF_INFERENCE_URL, data=data, method="POST",
+                headers=headers)
+            with urllib.request.urlopen(req, timeout=60) as r:
+                result = json.loads(r.read().decode())
+                # HF Inference API returns list: [{"generated_text": "..."}]
+                if isinstance(result, list) and result:
+                    return result[0].get("generated_text", "").strip()
+                elif isinstance(result, dict) and "generated_text" in result:
+                    return result["generated_text"].strip()
+                elif isinstance(result, dict) and "error" in result:
+                    # Model loading — retry
+                    if "loading" in result["error"].lower() and attempt < max_retries - 1:
+                        wait = result.get("estimated_time", 20)
+                        print(f"[INFO] Model loading, waiting {wait}s...", flush=True)
+                        time.sleep(min(wait, 30))
+                        continue
+                    raise ValueError(result["error"])
+        except Exception as e:
+            print(f"[DEBUG] Trained model attempt {attempt+1} failed: {e}", flush=True)
+            if attempt == max_retries - 1:
+                raise
+            time.sleep(3)
+    return ""
+
+
+# ── Base model inference (HF Router, OpenAI-compatible) ───────────────────
+def call_base_model(client: OpenAI, system_prompt: str, user_prompt: str) -> str:
+    """Calls Qwen2.5-72B via HF router as OpenAI-compatible fallback."""
     try:
         completion = client.chat.completions.create(
-            model=MODEL_NAME,
+            model=BASE_MODEL,
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user",   "content": user_prompt},
@@ -143,192 +172,173 @@ def call_llm(client: OpenAI, system_prompt: str, user_prompt: str) -> str:
         )
         return (completion.choices[0].message.content or "").strip()
     except Exception as exc:
-        print(f"[DEBUG] LLM call failed: {exc}", flush=True)
+        print(f"[DEBUG] Base model call failed: {exc}", flush=True)
         return ""
 
 
-def agent_data_analyst(client: OpenAI, obs: dict, step: int, task_id: str) -> str:
+# ── Smart dispatcher ───────────────────────────────────────────────────────
+def call_llm(client: OpenAI, system_prompt: str, user_prompt: str) -> str:
     """
-    AGENT 1 — DATA ANALYST
-    Role: Focus ONLY on numbers. km² figures, rainfall mm, percentages,
-    population counts. Cite exact values from the context provided.
-    Why: The reward rubric requires exact numeric figures — this agent
-    makes sure none are missing.
+    Routes to trained model first, falls back to base model.
+    For the trained model, formats the chat template manually since
+    HF Inference API doesn't use OpenAI format.
     """
-    system = (
-        "You are a GIS Data Analyst specializing in SAR satellite flood data. "
-        "Your ONLY job is to extract and report EXACT numbers: "
-        "flood extent in km², CHIRPS rainfall in mm, population counts, "
-        "percentages, and accuracy metrics. "
-        "Never be vague. Always give specific figures."
-    )
+    if USE_TRAINED:
+        # Format as Qwen2.5 chat template
+        prompt = (
+            f"<|im_start|>system\n{system_prompt}<|im_end|>\n"
+            f"<|im_start|>user\n{user_prompt}<|im_end|>\n"
+            f"<|im_start|>assistant\n"
+        )
+        try:
+            result = call_trained_model(prompt)
+            # Strip any trailing im_end tokens
+            result = result.replace("<|im_end|>", "").strip()
+            if result:
+                print(f"[INFO] Used trained model: {TRAINED_MODEL}", flush=True)
+                return result
+        except Exception as e:
+            print(f"[INFO] Trained model unavailable ({e}), falling back to base", flush=True)
+
+    # Fallback to base model
+    return call_base_model(client, system_prompt, user_prompt)
+
+
+# ── 4-Agent Pipeline ───────────────────────────────────────────────────────
+def build_context(obs: dict) -> str:
+    """Extract useful context from observation for agent prompts."""
     ctx = obs.get("context", {})
+    if isinstance(ctx, str):
+        return ctx[:400]
+    if isinstance(ctx, dict):
+        return json.dumps(ctx)[:400]
+    return str(ctx)[:400]
+
+
+def agent_data_analyst(client, obs, step, task_id):
+    """Agent 1: Focus on exact numbers — km², rainfall, population."""
+    system = (
+        "You are a GIS Data Analyst specialising in Sentinel-1 SAR flood data for Indian river basins. "
+        "Your ONLY job is to report EXACT numbers from the context: "
+        "flood extent in km² for each year, CHIRPS rainfall totals in mm, "
+        "population counts, district areas, accuracy percentages. "
+        "Be specific. Never use vague language. Cite every figure you state."
+    )
     user = (
         f"Task: {obs.get('task_description', task_id)}\n"
         f"Step {step} of {obs.get('max_steps', MAX_STEPS)}\n"
-        f"Data context: {json.dumps(ctx)[:400]}\n"
+        f"Data context: {build_context(obs)}\n"
         f"Last result: {obs.get('last_action_result') or 'None'}\n\n"
-        f"Report ONLY the exact numeric data relevant to this task. "
-        f"Include km² figures for flood extents, rainfall totals, population numbers."
+        "Report ONLY the exact numeric data from the context. "
+        "Include km² flood extents, rainfall totals, population numbers, accuracy metrics."
     )
     return call_llm(client, system, user)
 
 
-def agent_domain_expert(client: OpenAI, obs: dict, step: int, task_id: str) -> str:
-    """
-    AGENT 2 — DOMAIN EXPERT
-    Role: Focus on GIS knowledge — district names, causal factors
-    (why floods happen), geographic zones, risk explanations.
-    Why: The reward rubric requires district names and causal terminology.
-    This agent covers what Agent 1 misses.
-    """
+def agent_domain_expert(client, obs, step, task_id):
+    """Agent 2: Focus on district names and causal GIS factors."""
     system = (
         "You are a Senior GIS and Hydrology Expert for South Asian river systems. "
-        "Your job is to provide expert analysis: name specific districts, "
-        "explain causal factors (DEM elevation, HydroSHEDS flow accumulation, "
-        "CHIRPS rainfall, slope), identify geographic zones, and give "
-        "data-backed flood risk assessments. "
-        "Always name at least 3 specific districts and 2 causal factors."
+        "Your job: name specific districts affected by flooding, explain causal factors "
+        "(DEM elevation, HydroSHEDS flow accumulation, CHIRPS rainfall anomalies, slope), "
+        "identify high-risk geographic zones, and provide data-backed flood risk assessments. "
+        "Always name at least 3 specific districts and cite 2+ causal factors."
     )
-    ctx = obs.get("context", {})
     user = (
         f"Task: {obs.get('task_description', task_id)}\n"
         f"Step {step} of {obs.get('max_steps', MAX_STEPS)}\n"
-        f"Context: {json.dumps(ctx)[:400]}\n"
+        f"Context: {build_context(obs)}\n"
         f"Last result: {obs.get('last_action_result') or 'None'}\n\n"
-        f"Provide your expert GIS analysis. Name specific districts "
-        f"(Morigaon, Dhubri, Barpeta, Goalpara, Kamrup) and causal factors."
+        "Provide expert GIS analysis: name specific districts, explain causal factors "
+        "(CHIRPS rainfall, DEM elevation, HydroSHEDS flow accumulation, SRTM slope), "
+        "identify flood-prone zones by name."
     )
     return call_llm(client, system, user)
 
 
-def agent_critic(client: OpenAI, analyst_answer: str, expert_answer: str,
-                 task_id: str) -> str:
-    """
-    AGENT 3 — CRITIC
-    Role: Read what Agent 1 and Agent 2 said, and find what's MISSING.
-    Point out: missing numbers, vague claims, missing district names,
-    missing causal factors.
-    Why: This is the 'debate' step. The critic forces the final answer
-    to be complete. Vague claims cost -0.10 in the reward — the critic
-    catches those before submission.
-    """
+def agent_critic(client, analyst_answer, expert_answer, task_id):
+    """Agent 3: Find gaps before the answer is submitted to the environment."""
     system = (
-        "You are a strict scientific reviewer. Your job is to identify GAPS "
-        "in two flood analysis answers. Look for: missing km² figures, "
-        "missing district names, vague unsupported claims, missing causal factors, "
-        "missing accuracy metrics. "
-        "Be specific about what each answer is missing. Keep it under 150 words."
+        "You are a strict scientific peer reviewer for flood intelligence reports. "
+        "Your job: identify MISSING information in two flood analysis answers. "
+        "Look for: missing km² figures, missing district names, vague unsupported claims, "
+        "missing causal factors, missing accuracy metrics. "
+        "Be specific about each gap. Under 120 words."
     )
     user = (
         f"Task: {task_id}\n\n"
-        f"--- DATA ANALYST ANSWER ---\n{analyst_answer}\n\n"
-        f"--- DOMAIN EXPERT ANSWER ---\n{expert_answer}\n\n"
-        f"What is MISSING from these answers? What vague claims need specific data? "
-        f"What district names or km² figures are absent? List the gaps clearly."
+        f"DATA ANALYST ANSWER:\n{analyst_answer}\n\n"
+        f"DOMAIN EXPERT ANSWER:\n{expert_answer}\n\n"
+        "What is MISSING? List specific gaps: missing km² values, missing districts, "
+        "vague claims needing numbers, absent causal factors."
     )
     return call_llm(client, system, user)
 
 
-def agent_aggregator(client: OpenAI, analyst_answer: str, expert_answer: str,
-                     critic_feedback: str, obs: dict, task_id: str) -> str:
-    """
-    AGENT 4 — AGGREGATOR
-    Role: Read all three inputs and write ONE perfect final answer.
-    This is the answer that actually gets sent to /step in the environment.
-    Why: Combines the best of both Agent 1 and Agent 2, while fixing
-    everything the Critic flagged. Maximizes reward score.
-    """
+def agent_aggregator(client, analyst_answer, expert_answer, critic_feedback, obs, task_id):
+    """Agent 4: Final answer combining all inputs — this gets sent to /step."""
     system = (
-        "You are a Chief Flood Intelligence Officer writing the final official report. "
-        "You have inputs from a Data Analyst (numbers), a Domain Expert (districts/causes), "
-        "and a Critic (what's missing). "
-        "Write ONE comprehensive answer that: "
-        "1) Includes ALL exact km² figures "
-        "2) Names ALL relevant districts "
-        "3) Cites causal factors (rainfall, DEM, flow accumulation) "
-        "4) Fixes every gap the Critic identified "
-        "5) Makes NO vague unsupported claims "
-        "Keep it under 300 words but make every sentence count."
+        "You are a Chief Flood Intelligence Officer writing the official final report. "
+        "Combine the Data Analyst's numbers, the Domain Expert's GIS knowledge, "
+        "and fix every gap the Critic identified. "
+        "Your answer MUST include: "
+        "(1) All exact km² figures for flood extents, "
+        "(2) At least 3 specific district names, "
+        "(3) Causal factors: CHIRPS rainfall, DEM elevation, HydroSHEDS flow accumulation, "
+        "(4) No vague unsupported claims — every statement backed by data. "
+        "Under 300 words. Prose only, no bullet points."
     )
-    ctx = obs.get("context", {})
     user = (
         f"Task: {obs.get('task_description', task_id)}\n"
-        f"Context data: {json.dumps(ctx)[:300]}\n\n"
-        f"--- DATA ANALYST SAID ---\n{analyst_answer}\n\n"
-        f"--- DOMAIN EXPERT SAID ---\n{expert_answer}\n\n"
-        f"--- CRITIC IDENTIFIED THESE GAPS ---\n{critic_feedback}\n\n"
-        f"Write the final complete answer addressing ALL gaps. "
-        f"Include specific km² figures, district names, and causal factors."
+        f"Context data: {build_context(obs)[:300]}\n\n"
+        f"DATA ANALYST:\n{analyst_answer}\n\n"
+        f"DOMAIN EXPERT:\n{expert_answer}\n\n"
+        f"CRITIC IDENTIFIED GAPS:\n{critic_feedback}\n\n"
+        "Write the final comprehensive answer. "
+        "Fix ALL gaps. Include exact km² figures, district names, causal factors."
     )
     return call_llm(client, system, user)
 
 
-# ──────────────────────────────────────────────────────────
-# MULTI-AGENT ORCHESTRATOR
-# This is the main function that coordinates all 4 agents
-# and returns the final answer to send to the environment.
-# ──────────────────────────────────────────────────────────
-
-def get_multi_agent_response(client: OpenAI, obs: dict, step: int,
-                              history: List[str], task_id: str) -> str:
+def get_agent_response(client, obs, step, history, task_id):
     """
-    Runs the full 4-agent pipeline and returns the best possible answer.
-
+    Full 4-agent pipeline → returns best possible answer for /step.
+    
     Flow:
-      Agent 1 (Data Analyst)  ──┐
-                                 ├──► Agent 3 (Critic) ──► Agent 4 (Aggregator) ──► FINAL ANSWER
-      Agent 2 (Domain Expert) ──┘
-
-    Falls back to FALLBACKS dict if all LLM calls fail.
+      Agent 1 (numbers) ──┐
+                           ├──▶ Agent 3 (critic) ──▶ Agent 4 (aggregator) ──▶ FINAL
+      Agent 2 (GIS)    ──┘
     """
-    print(f"[DEBUG] Running multi-agent pipeline for step {step}...", flush=True)
+    print(f"[DEBUG] 4-agent pipeline | step={step} | model={'trained' if USE_TRAINED else 'base'}", flush=True)
 
-    # ── Step 1: Data Analyst gives numbers ──────────────────
-    analyst_answer = agent_data_analyst(client, obs, step, task_id)
-    print(f"[DEBUG] Agent 1 (Data Analyst) done.", flush=True)
+    analyst = agent_data_analyst(client, obs, step, task_id)
+    print(f"[DEBUG] Agent 1 (Data Analyst): {len(analyst)} chars", flush=True)
 
-    # ── Step 2: Domain Expert gives GIS knowledge ───────────
-    expert_answer = agent_domain_expert(client, obs, step, task_id)
-    print(f"[DEBUG] Agent 2 (Domain Expert) done.", flush=True)
+    expert = agent_domain_expert(client, obs, step, task_id)
+    print(f"[DEBUG] Agent 2 (Domain Expert): {len(expert)} chars", flush=True)
 
-    # ── Step 3: Critic finds gaps ────────────────────────────
-    # Only run critic if both agents produced something useful
-    if analyst_answer and expert_answer:
-        critic_feedback = agent_critic(client, analyst_answer, expert_answer, task_id)
-        print(f"[DEBUG] Agent 3 (Critic) done.", flush=True)
+    if analyst and expert:
+        critic = agent_critic(client, analyst, expert, task_id)
+        print(f"[DEBUG] Agent 3 (Critic): {len(critic)} chars", flush=True)
     else:
-        critic_feedback = "No specific gaps identified."
+        critic = "No specific gaps identified."
 
-    # ── Step 4: Aggregator writes the final answer ───────────
-    final_answer = ""
-    if analyst_answer or expert_answer:
-        final_answer = agent_aggregator(
-            client, analyst_answer, expert_answer, critic_feedback, obs, task_id
-        )
-        print(f"[DEBUG] Agent 4 (Aggregator) done.", flush=True)
+    if analyst or expert:
+        final = agent_aggregator(client, analyst, expert, critic, obs, task_id)
+        print(f"[DEBUG] Agent 4 (Aggregator): {len(final)} chars", flush=True)
+    else:
+        final = ""
 
-    # ── Fallback: if all agents failed, use safe fallback ────
-    if not final_answer:
-        print(f"[DEBUG] All agents failed, using fallback.", flush=True)
-        fallback_steps = FALLBACKS.get(task_id, FALLBACKS["flood_year_comparison"])
-        idx = min(step - 1, len(fallback_steps) - 1)
-        return fallback_steps[idx]
+    if not final:
+        fallback_list = FALLBACKS.get(task_id, FALLBACKS["flood_year_comparison"])
+        return fallback_list[min(step - 1, len(fallback_list) - 1)]
 
-    return final_answer
+    return final
 
 
-# ──────────────────────────────────────────────────────────
-# RUN ONE TASK EPISODE (same structure as original)
-# ──────────────────────────────────────────────────────────
-
+# ── Run one task episode ────────────────────────────────────────────────────
 async def run_task(client: OpenAI, task_id: str) -> float:
-    """
-    Runs one complete task episode using the multi-agent system.
-    Structure is identical to original inference.py — only the
-    'get agent response' call is replaced with multi-agent pipeline.
-    """
-    history: List[str]  = []
+    history: List[str]   = []
     rewards: List[float] = []
     steps_taken = 0
     score   = 0.0
@@ -349,16 +359,13 @@ async def run_task(client: OpenAI, task_id: str) -> float:
             if obs.get("done", False):
                 break
 
-            # ← THIS IS THE KEY CHANGE: multi-agent instead of single agent
-            action = get_multi_agent_response(client, obs, step, history, task_id)
-
+            action = get_agent_response(client, obs, step, history, task_id)
             result = env_step(action)
 
             if "error" in result:
-                print(f"[DEBUG] Step error: {result['error']}", flush=True)
-                reward  = 0.0
-                done    = False
-                error   = result["error"][:80]
+                reward   = 0.0
+                done     = False
+                error    = result["error"][:80]
                 obs_next = obs
             else:
                 reward   = float(result.get("reward", 0) or 0)
@@ -369,7 +376,7 @@ async def run_task(client: OpenAI, task_id: str) -> float:
             rewards.append(reward)
             steps_taken = step
             log_step(step=step, action=action, reward=reward, done=done, error=error)
-            history.append(f"Step {step}: {reward:+.2f}")
+            history.append(f"Step {step}: reward={reward:+.2f}")
             obs = obs_next
 
             if done or step >= max_s:
@@ -388,18 +395,29 @@ async def run_task(client: OpenAI, task_id: str) -> float:
     return score
 
 
-# ──────────────────────────────────────────────────────────
-# MAIN — runs all 3 tasks (same as original)
-# ──────────────────────────────────────────────────────────
-
+# ── Main ────────────────────────────────────────────────────────────────────
 async def main() -> None:
-    client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
+    # OpenAI client points to HF router (used for base model fallback)
+    client = OpenAI(base_url=HF_ROUTER_URL, api_key=HF_TOKEN)
 
-    tasks_to_run = [TASK_NAME] if os.getenv("MY_ENV_V4_TASK") else ALL_TASKS
+    ALL_REGIONS = [
+        "brahmaputra", "ganga", "mahanadi", "krishna", "godavari",
+        "narmada", "tapti", "cauvery", "damodar", "sabarmati",
+        "mahi", "baitarani", "subarnarekha", "indus", "luni",
+    ]
 
-    for task_id in tasks_to_run:
-        await run_task(client, task_id)
-        print("", flush=True)  # blank line between tasks
+    # If specific task set via env, run only that
+    if os.getenv("MY_ENV_V4_TASK"):
+        await run_task(client, TASK_NAME)
+        return
+
+    # Otherwise run all tasks across all regions
+    for region in ALL_REGIONS:
+        os.environ["CHRONOSTASIS_REGION"] = region
+        print(f"\n{'='*50}\nREGION: {region.upper()}\n{'='*50}", flush=True)
+        for task_id in ALL_TASKS:
+            await run_task(client, task_id)
+            print("", flush=True)
 
 
 if __name__ == "__main__":
