@@ -3,724 +3,517 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Chronostasis — Flood Intelligence Environment</title>
+<title>Chronostasis — Flood Intelligence</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
-<link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=Rajdhani:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet"/>
 <script src="https://cdn.tailwindcss.com"></script>
-<script>
-tailwind.config = {
-  theme: {
-    extend: {
-      fontFamily: {
-        mono: ['"Space Mono"', 'monospace'],
-        sans: ['"DM Sans"', 'sans-serif'],
-      },
-      colors: {
-        ink: '#060d14',
-        surface: '#0c1a26',
-        panel: '#0f2033',
-        border: '#1a3448',
-        muted: '#2a4a63',
-        cyan: { DEFAULT: '#00d4ff', dim: '#0099bb', glow: 'rgba(0,212,255,0.12)' },
-        emerald: { DEFAULT: '#00e887', dim: '#00a85f', glow: 'rgba(0,232,135,0.12)' },
-        amber: { DEFAULT: '#ffb340', dim: '#cc8800', glow: 'rgba(255,179,64,0.12)' },
-        rose: { DEFAULT: '#ff4d6d', dim: '#cc2244', glow: 'rgba(255,77,109,0.12)' },
-      },
-      animation: {
-        'pulse-slow': 'pulse 3s ease-in-out infinite',
-        'scan': 'scan 2s linear infinite',
-        'fade-in': 'fadeIn 0.4s ease-out',
-        'slide-up': 'slideUp 0.35s ease-out',
-      },
-      keyframes: {
-        scan: { '0%': { transform: 'translateY(-100%)' }, '100%': { transform: 'translateY(400%)' }},
-        fadeIn: { from: { opacity: 0 }, to: { opacity: 1 }},
-        slideUp: { from: { opacity: 0, transform: 'translateY(12px)' }, to: { opacity: 1, transform: 'translateY(0)' }},
-      }
-    }
-  }
-}
-</script>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: #060d14; color: #c8dde8; font-family: 'DM Sans', sans-serif; min-height: 100vh; overflow-x: hidden; }
-  ::-webkit-scrollbar { width: 4px; } ::-webkit-scrollbar-track { background: #060d14; } ::-webkit-scrollbar-thumb { background: #1a3448; border-radius: 2px; }
-  .scanline { position: fixed; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, transparent, rgba(0,212,255,0.4), transparent); animation: scan 4s linear infinite; pointer-events: none; z-index: 100; }
-  .grid-bg { background-image: linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px); background-size: 32px 32px; }
-  .glow-cyan { box-shadow: 0 0 20px rgba(0,212,255,0.15), 0 0 40px rgba(0,212,255,0.05); }
-  .glow-emerald { box-shadow: 0 0 20px rgba(0,232,135,0.15), 0 0 40px rgba(0,232,135,0.05); }
-  .glow-rose { box-shadow: 0 0 20px rgba(255,77,109,0.15); }
-  .glow-amber { box-shadow: 0 0 20px rgba(255,179,64,0.15); }
-  .terminal { font-family: 'Space Mono', monospace; font-size: 13px; line-height: 1.7; }
-  .card { background: #0c1a26; border: 1px solid #1a3448; border-radius: 10px; }
-  .badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px; border-radius: 99px; font-family: 'Space Mono', monospace; font-size: 11px; font-weight: 700; letter-spacing: 0.05em; }
-  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 20px; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer; transition: all 0.15s; border: 1px solid; letter-spacing: 0.02em; }
-  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
-  .btn-primary { background: rgba(0,212,255,0.12); border-color: rgba(0,212,255,0.4); color: #00d4ff; }
-  .btn-primary:hover:not(:disabled) { background: rgba(0,212,255,0.22); border-color: #00d4ff; }
-  .btn-emerald { background: rgba(0,232,135,0.12); border-color: rgba(0,232,135,0.4); color: #00e887; }
-  .btn-emerald:hover:not(:disabled) { background: rgba(0,232,135,0.22); border-color: #00e887; }
-  .btn-rose { background: rgba(255,77,109,0.12); border-color: rgba(255,77,109,0.4); color: #ff4d6d; }
-  .btn-rose:hover:not(:disabled) { background: rgba(255,77,109,0.2); }
-  .tab { padding: 6px 16px; font-size: 12px; font-weight: 600; font-family: 'Space Mono', monospace; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s; color: #6a8fa8; letter-spacing: 0.04em; }
-  .tab.active { color: #00d4ff; border-bottom-color: #00d4ff; }
-  .tab:hover:not(.active) { color: #c8dde8; }
-  .reward-bar { transition: width 0.6s cubic-bezier(0.4,0,0.2,1); }
-  @keyframes blink { 0%,100%{opacity:1}50%{opacity:0} }
-  .cursor::after { content: '▋'; animation: blink 1s step-end infinite; }
-  .noise::before { content: ''; position: absolute; inset: 0; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E"); pointer-events: none; border-radius: inherit; }
+:root {
+  --gold:#C9962A;--gold-b:#E8B84B;--gold-p:#F5D88A;--gold-d:#8B6515;
+  --obs:#080808;--coal:#111111;--graph:#1a1a1a;
+  --ivory:#F0E8D0;--cream:#E8DCBC;--parch:#D4C89A;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--obs);color:var(--cream);font-family:'Rajdhani',sans-serif;min-height:100vh;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;z-index:0;background-image:linear-gradient(rgba(201,150,42,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(201,150,42,0.03) 1px,transparent 1px);background-size:48px 48px;pointer-events:none}
+body::after{content:'';position:fixed;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--gold),var(--gold-b),var(--gold),transparent);z-index:200}
+::-webkit-scrollbar{width:3px}::-webkit-scrollbar-track{background:var(--obs)}::-webkit-scrollbar-thumb{background:var(--gold-d)}
+.fd{font-family:'Montserrat',sans-serif;font-weight:600}.fm{font-family:'Share Tech Mono',monospace}.fb{font-family:'Rajdhani',sans-serif}
+.card{background:var(--coal);border:1px solid rgba(201,150,42,0.18);border-radius:2px;position:relative}
+.card::before{content:'';position:absolute;top:-1px;left:16px;right:16px;height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent)}
+.card-glow{box-shadow:0 0 24px rgba(201,150,42,0.06)}
+.card-active{border-color:rgba(201,150,42,0.55)!important;box-shadow:0 0 28px rgba(201,150,42,0.18),inset 0 0 40px rgba(201,150,42,0.04)!important}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 18px;font-family:'Rajdhani',sans-serif;font-weight:600;font-size:12px;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;transition:all .2s;border-radius:1px}
+.btn-g{background:rgba(201,150,42,.1);border:1px solid rgba(201,150,42,.4);color:var(--gold-b)}
+.btn-g:hover:not(:disabled){background:rgba(201,150,42,.2);border-color:var(--gold);box-shadow:0 0 14px rgba(201,150,42,.25)}
+.btn-g:disabled{opacity:.35;cursor:not-allowed}
+.btn-d{background:rgba(139,58,10,.12);border:1px solid rgba(180,80,20,.3);color:#E87A40}
+.bdg{display:inline-flex;align-items:center;padding:1px 7px;border-radius:1px;font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:.1em;font-weight:700}
+.bdg-e{background:rgba(40,120,40,.18);border:1px solid rgba(40,180,40,.25);color:#70D070}
+.bdg-m{background:rgba(180,120,20,.18);border:1px solid rgba(220,160,40,.25);color:var(--gold-b)}
+.bdg-h{background:rgba(180,40,40,.18);border:1px solid rgba(220,60,60,.25);color:#E87070}
+.bdg-gold{background:rgba(201,150,42,.12);border:1px solid rgba(201,150,42,.3);color:var(--gold-b)}
+.bdg-live{background:rgba(40,120,40,.12);border:1px solid rgba(40,180,40,.22);color:#70D070}
+.tab{padding:8px 16px;font-family:'Rajdhani',sans-serif;font-weight:600;font-size:11px;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;transition:all .15s;color:#4A3A18;border-bottom:2px solid transparent}
+.tab.on{color:var(--gold-b);border-bottom-color:var(--gold)}
+.tab:hover:not(.on){color:var(--parch)}
+.term{background:#040404;border:1px solid rgba(201,150,42,.12);font-family:'Share Tech Mono',monospace;font-size:12px;line-height:1.8;padding:14px;overflow-y:auto}
+.divg{height:1px;background:linear-gradient(90deg,transparent,rgba(201,150,42,.25),transparent)}
+.stat{background:rgba(201,150,42,.04);border:1px solid rgba(201,150,42,.1);padding:10px 12px;border-radius:2px}
+.rbtn{background:var(--coal);border:1px solid rgba(201,150,42,.14);padding:9px 12px;border-radius:2px;cursor:pointer;transition:all .18s;text-align:left}
+.rbtn:hover{border-color:rgba(201,150,42,.35)}
+.rbtn.on{background:rgba(201,150,42,.07);border-color:rgba(201,150,42,.55);box-shadow:0 0 14px rgba(201,150,42,.14)}
+.deco{position:absolute;width:16px;height:16px}
+.deco::before,.deco::after{content:'';position:absolute;background:var(--gold)}
+.dtl{top:0;left:0}.dtl::before{top:0;left:0;width:10px;height:1px}.dtl::after{top:0;left:0;width:1px;height:10px}
+.dtr{top:0;right:0}.dtr::before{top:0;right:0;width:10px;height:1px}.dtr::after{top:0;right:0;width:1px;height:10px}
+.dbl{bottom:0;left:0}.dbl::before{bottom:0;left:0;width:10px;height:1px}.dbl::after{bottom:0;left:0;width:1px;height:10px}
+.dbr{bottom:0;right:0}.dbr::before{bottom:0;right:0;width:10px;height:1px}.dbr::after{bottom:0;right:0;width:1px;height:10px}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes up{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+@keyframes scan{0%{transform:translateY(-100%)}100%{transform:translateY(3000%)}}
+.ani-f{animation:fadeIn .35s ease-out}
+.ani-u{animation:up .3s ease-out}
+.cur::after{content:'█';animation:blink 1s step-end infinite;color:var(--gold)}
+.dot-p{animation:pulse 2s ease-in-out infinite}
+.scanwrap{position:relative;overflow:hidden}
+.scanwrap::after{content:'';position:absolute;left:0;right:0;height:40px;background:linear-gradient(transparent,rgba(201,150,42,.025),transparent);animation:scan 5s linear infinite;pointer-events:none}
 </style>
 </head>
-<body class="grid-bg">
-<div class="scanline"></div>
+<body>
 <div id="root"></div>
-
 <script type="text/babel">
-const { useState, useEffect, useRef, useCallback } = React;
+const {useState,useEffect,useRef,useCallback}=React;
+const B='';
 
-const BASE = '';
-
-const REGIONS_META = {
-  brahmaputra: { label: 'Brahmaputra', state: 'Assam', color: '#00d4ff', icon: '◈' },
-  ganga:       { label: 'Ganga',       state: 'Bihar', color: '#00e887', icon: '◈' },
-  mahanadi:    { label: 'Mahanadi',    state: 'Odisha', color: '#ffb340', icon: '◈' },
-  krishna:     { label: 'Krishna',     state: 'Andhra Pradesh', color: '#a78bfa', icon: '◈' },
-  godavari:    { label: 'Godavari',    state: 'Telangana / AP', color: '#f472b6', icon: '◈' },
+const TM={
+  flood_year_comparison:{label:'Flood Year Comparison',diff:'EASY',color:'#70D070',steps:6},
+  district_inundation_report:{label:'District Inundation',diff:'MEDIUM',color:'#E8B84B',steps:8},
+  flood_risk_forecast:{label:'Risk Forecast 2025',diff:'HARD',color:'#E87070',steps:10},
 };
-
-const TASK_META = {
-  flood_year_comparison:    { label: 'Flood Year Comparison', diff: 'EASY',   steps: 6,  color: '#00e887' },
-  district_inundation_report: { label: 'District Inundation',   diff: 'MEDIUM', steps: 8,  color: '#ffb340' },
-  flood_risk_forecast:      { label: 'Risk Forecast 2025',     diff: 'HARD',  steps: 10, color: '#ff4d6d' },
+const SL={
+  pre_monsoon:{label:'Pre-Monsoon',months:'Mar–May',c:'#C9962A'},
+  kharif:{label:'Kharif',months:'Jun–Sep',c:'#E8B84B'},
+  post_monsoon:{label:'Post-Monsoon',months:'Oct–Nov',c:'#C9962A'},
+  rabi:{label:'Rabi',months:'Dec–Feb',c:'#8B6515'},
 };
+const RC={critical:'#E87070',high:'#E8B84B',moderate:'#C9962A',low:'#70A070'};
 
-function Dot({ color, pulse }) {
-  return (
-    <span style={{ display:'inline-block', width:8, height:8, borderRadius:'50%', background:color, boxShadow:`0 0 6px ${color}`, flexShrink:0, ...(pulse ? { animation:'pulse 2s infinite' } : {}) }} />
-  );
-}
-
-function Badge({ children, color = '#00d4ff' }) {
-  return (
-    <span className="badge" style={{ background: `${color}18`, border: `1px solid ${color}44`, color }}>
+function DC({children,cls='',active=false,pad='16px'}){
+  return(
+    <div className={`card card-glow relative ${active?'card-active':''} ${cls}`} style={{padding:pad}}>
+      <div className="deco dtl"/><div className="deco dtr"/><div className="deco dbl"/><div className="deco dbr"/>
       {children}
-    </span>
-  );
-}
-
-function RewardBar({ value, max = 1 }) {
-  const pct = Math.min(100, Math.round((value / max) * 100));
-  const color = pct >= 70 ? '#00e887' : pct >= 40 ? '#ffb340' : '#ff4d6d';
-  return (
-    <div className="relative w-full h-2 rounded-full" style={{ background: '#1a3448' }}>
-      <div className="reward-bar h-full rounded-full" style={{ width: `${pct}%`, background: color, boxShadow: `0 0 8px ${color}88` }} />
     </div>
   );
 }
 
-function StatPill({ label, value, color = '#00d4ff' }) {
-  return (
-    <div className="card p-3 flex flex-col gap-1">
-      <span className="terminal text-xs" style={{ color: '#6a8fa8' }}>{label}</span>
-      <span className="terminal font-bold text-sm" style={{ color }}>{value}</span>
+function RBar({val}){
+  const p=Math.min(100,Math.round(val*100));
+  const c=p>=70?'#70D070':p>=40?'#E8B84B':'#E87070';
+  return(
+    <div style={{height:3,background:'#1a1a1a',borderRadius:0}}>
+      <div style={{height:'100%',width:`${p}%`,background:`linear-gradient(90deg,${c}66,${c})`,boxShadow:`0 0 8px ${c}44`,transition:'width .8s cubic-bezier(.4,0,.2,1)'}}/>
     </div>
   );
 }
 
-function RegionSelector({ regions, selected, onSelect }) {
-  return (
-    <div className="flex flex-wrap gap-2">
-      {Object.entries(REGIONS_META).map(([id, meta]) => {
-        const r = regions.find(r => r.id === id);
-        const active = selected === id;
-        return (
-          <button key={id} onClick={() => onSelect(id)}
-            className="btn text-xs px-3 py-2 transition-all"
-            style={{
-              borderColor: active ? meta.color : '#1a3448',
-              background: active ? `${meta.color}18` : 'transparent',
-              color: active ? meta.color : '#6a8fa8',
-              boxShadow: active ? `0 0 12px ${meta.color}33` : 'none',
-            }}>
-            <span style={{ fontSize: 14 }}>{meta.icon}</span>
-            <div className="text-left">
-              <div style={{ fontFamily: 'Space Mono', fontSize: 11, fontWeight: 700 }}>{meta.label}</div>
-              <div style={{ fontSize: 10, opacity: 0.7, marginTop: 1 }}>{meta.state}</div>
-            </div>
-            {r && active && (
-              <span className="ml-1 terminal" style={{ fontSize: 10, color: meta.color }}>
-                {r.accuracy_pct}%
-              </span>
-            )}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-function TaskSelector({ selected, onSelect }) {
-  return (
-    <div className="flex gap-2 flex-wrap">
-      {Object.entries(TASK_META).map(([id, meta]) => {
-        const active = selected === id;
-        return (
-          <button key={id} onClick={() => onSelect(id)}
-            className="btn text-xs"
-            style={{
-              borderColor: active ? meta.color : '#1a3448',
-              background: active ? `${meta.color}15` : 'transparent',
-              color: active ? meta.color : '#6a8fa8',
-              boxShadow: active ? `0 0 10px ${meta.color}22` : 'none',
-            }}>
-            <span className="badge" style={{ background: `${meta.color}22`, border: 'none', color: meta.color, fontSize: 9 }}>
-              {meta.diff}
-            </span>
-            <span style={{ fontFamily: 'DM Sans', fontWeight: 500 }}>{meta.label}</span>
-            <span className="terminal" style={{ fontSize: 10, opacity: 0.6 }}>/{meta.steps}</span>
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-function Terminal({ lines, loading }) {
-  const ref = useRef(null);
-  useEffect(() => { if (ref.current) ref.current.scrollTop = ref.current.scrollHeight; }, [lines]);
-  return (
-    <div ref={ref} className="terminal rounded-lg p-4 overflow-y-auto" style={{ background: '#040b10', border: '1px solid #1a3448', minHeight: 220, maxHeight: 340, fontSize: 12, lineHeight: 1.8 }}>
-      {lines.length === 0 && (
-        <span style={{ color: '#2a4a63' }}>$ awaiting command...</span>
-      )}
-      {lines.map((l, i) => (
-        <div key={i} className="animate-fade-in" style={{ color: l.color || '#7fb3cc' }}>
-          {l.prefix && <span style={{ color: '#2a6a8a', marginRight: 8 }}>{l.prefix}</span>}
-          {l.text}
+function Term({lines,loading}){
+  const r=useRef(null);
+  useEffect(()=>{if(r.current)r.current.scrollTop=r.current.scrollHeight;},[lines]);
+  return(
+    <div ref={r} className="term scanwrap" style={{minHeight:200,maxHeight:300}}>
+      {!lines.length&&<span style={{color:'#3A2D10'}}>{'>'} CHRONOSTASIS v2.0 — AWAITING COMMAND...</span>}
+      {lines.map((l,i)=>(
+        <div key={i} className="ani-f" style={{color:l.color||'#D4C89A'}}>
+          {l.p&&<span style={{color:'#6B5A30',marginRight:8}}>{l.p}</span>}{l.t}
         </div>
       ))}
-      {loading && (
-        <div style={{ color: '#00d4ff' }} className="cursor">processing</div>
-      )}
+      {loading&&<div style={{color:'#C9962A'}} className="cur">PROCESSING</div>}
     </div>
   );
 }
 
-function EpisodePanel({ episode, regionId }) {
-  if (!episode) return null;
-  const meta = TASK_META[episode.task_id] || {};
-  const regionColor = REGIONS_META[regionId]?.color || '#00d4ff';
-  const rewardPct = Math.round(episode.total_reward * 100);
-  return (
-    <div className="card p-4 animate-slide-up">
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <Dot color={episode.done ? '#00e887' : '#ffb340'} pulse={!episode.done} />
-          <span className="terminal text-xs" style={{ color: '#6a8fa8' }}>EPISODE</span>
-        </div>
-        <div className="flex gap-2">
-          <Badge color={meta.color}>{meta.diff || '—'}</Badge>
-          <Badge color={regionColor}>{REGIONS_META[regionId]?.label || regionId}</Badge>
-        </div>
-      </div>
-      <div className="grid grid-cols-3 gap-3 mb-3">
-        <StatPill label="STEP" value={`${episode.steps} / ${TASK_META[episode.task_id]?.steps || '?'}`} color="#c8dde8" />
-        <StatPill label="REWARD" value={`${episode.total_reward.toFixed(3)}`} color={meta.color} />
-        <StatPill label="STATUS" value={episode.done ? 'DONE' : 'LIVE'} color={episode.done ? '#00e887' : '#ffb340'} />
-      </div>
-      <div className="space-y-1">
-        <div className="flex justify-between terminal text-xs mb-1" style={{ color: '#6a8fa8' }}>
-          <span>CUMULATIVE REWARD</span>
-          <span style={{ color: meta.color }}>{rewardPct}%</span>
-        </div>
-        <RewardBar value={episode.total_reward} />
-      </div>
-    </div>
-  );
-}
+function App(){
+  const[health,setHealth]=useState(null);
+  const[regions,setRegions]=useState([]);
+  const[map,setMap]=useState(null);
+  const[region,setRegion]=useState('brahmaputra');
+  const[task,setTask]=useState('flood_year_comparison');
+  const[season,setSeason]=useState('kharif');
+  const[ep,setEp]=useState(null);
+  const[lines,setLines]=useState([]);
+  const[loading,setLoading]=useState(false);
+  const[tab,setTab]=useState('demo');
 
-function StepHistory({ history, taskId }) {
-  if (!history?.length) return null;
-  const meta = TASK_META[taskId] || {};
-  return (
-    <div className="space-y-2">
-      {history.slice(-5).map((h, i) => (
-        <div key={i} className="card p-3 animate-slide-up" style={{ borderColor: h.reward > 0.3 ? `${meta.color}44` : '#1a3448' }}>
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="badge" style={{ background: '#1a3448', color: '#6a8fa8', fontSize: 10 }}>STEP {h.step}</span>
-                <RewardBar value={h.reward} />
-                <span className="terminal text-xs" style={{ color: meta.color, whiteSpace: 'nowrap' }}>+{h.reward.toFixed(3)}</span>
-              </div>
-              <p className="text-xs leading-relaxed line-clamp-3" style={{ color: '#8ab0c4', fontFamily: 'DM Sans' }}>
-                {h.action}
-              </p>
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
+  const log=(t,color='#D4C89A',p=null)=>setLines(prev=>[...prev.slice(-80),{t,color,p}]);
 
-function ChartView({ charts }) {
-  const [active, setActive] = useState(null);
-  if (!charts || !Object.keys(charts).length) return null;
-  const keys = Object.keys(charts);
-  if (!active || !charts[active]) {
-    const first = keys.find(k => k !== 'error');
-    if (first && active !== first) setActive(first);
-  }
-  const labels = { risk_zones: 'Risk Zones', sar_extent: 'SAR Extent', district_table: 'Districts', dashboard: 'Dashboard' };
-  return (
-    <div className="card overflow-hidden animate-slide-up">
-      <div className="flex border-b" style={{ borderColor: '#1a3448' }}>
-        {keys.filter(k => charts[k] && k !== 'error').map(k => (
-          <button key={k} className={`tab ${active === k ? 'active' : ''}`} onClick={() => setActive(k)}>
-            {labels[k] || k}
-          </button>
-        ))}
-      </div>
-      {active && charts[active] && (
-        <div className="p-3">
-          <img src={`data:image/png;base64,${charts[active]}`} alt={active} className="w-full rounded" style={{ imageRendering: 'crisp-edges' }} />
-        </div>
-      )}
-    </div>
-  );
-}
+  useEffect(()=>{
+    fetch(`${B}/health`).then(r=>r.json()).then(setHealth).catch(()=>{});
+    fetch(`${B}/regions`).then(r=>r.json()).then(setRegions).catch(()=>{});
+    fetch(`${B}/india_risk_map?season=kharif`).then(r=>r.json()).then(setMap).catch(()=>{});
+  },[]);
 
-function RegionStatsPanel({ regionData }) {
-  if (!regionData) return null;
-  const meta = REGIONS_META[regionData.id] || {};
-  const color = meta.color || '#00d4ff';
-  const peakArea = regionData.flood_areas?.[regionData.peak_year] || 0;
-  return (
-    <div className="card p-4 animate-slide-up">
-      <div className="flex items-center gap-2 mb-4">
-        <span style={{ fontSize: 20 }}>{meta.icon}</span>
-        <div>
-          <h3 className="font-semibold" style={{ color }}>{regionData.name}</h3>
-          <p className="terminal text-xs" style={{ color: '#6a8fa8' }}>{regionData.state} · {regionData.river} River</p>
-        </div>
-        <div className="ml-auto">
-          <Badge color={color}>{regionData.accuracy_pct}% ACC</Badge>
-        </div>
-      </div>
-      <div className="grid grid-cols-2 gap-2 mb-4">
-        <StatPill label="PEAK YEAR" value={regionData.peak_year} color={color} />
-        <StatPill label="PEAK AREA" value={`${peakArea?.toLocaleString()} km²`} color="#ff4d6d" />
-        <StatPill label="CHRONIC AREA" value={`${regionData.chronic_km2?.toLocaleString()} km²`} color="#ffb340" />
-        <StatPill label="AT-RISK POP." value={`${(regionData.chronic_pop/1e6).toFixed(1)}M`} color="#a78bfa" />
-      </div>
-      <div className="space-y-2">
-        <p className="terminal text-xs mb-2" style={{ color: '#6a8fa8' }}>SAR FLOOD EXTENT (km²)</p>
-        {regionData.flood_areas && Object.entries(regionData.flood_areas).map(([yr, area]) => {
-          const isPeak = parseInt(yr) === regionData.peak_year;
-          const max = Math.max(...Object.values(regionData.flood_areas));
-          return (
-            <div key={yr} className="flex items-center gap-3">
-              <span className="terminal text-xs w-10" style={{ color: isPeak ? '#ff4d6d' : '#6a8fa8' }}>{yr}</span>
-              <div className="flex-1 h-1.5 rounded-full" style={{ background: '#1a3448' }}>
-                <div className="h-full rounded-full transition-all duration-700"
-                  style={{ width: `${(area/max)*100}%`, background: isPeak ? '#ff4d6d' : color, boxShadow: isPeak ? '0 0 8px #ff4d6d88' : 'none' }} />
-              </div>
-              <span className="terminal text-xs w-20 text-right" style={{ color: isPeak ? '#ff4d6d' : '#8ab0c4' }}>{area?.toLocaleString()}</span>
-              {isPeak && <Badge color="#ff4d6d">PEAK</Badge>}
-            </div>
-          );
-        })}
-      </div>
-      {regionData.chronic_districts && (
-        <div className="mt-4">
-          <p className="terminal text-xs mb-2" style={{ color: '#6a8fa8' }}>CHRONIC DISTRICTS</p>
-          <div className="flex flex-wrap gap-1">
-            {regionData.chronic_districts.map(d => (
-              <span key={d} className="badge" style={{ background: '#ffb34018', border: '1px solid #ffb34044', color: '#ffb340', fontSize: 10 }}>{d}</span>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+  const fetchMap=useCallback(async(s)=>{
+    try{const d=await fetch(`${B}/india_risk_map?season=${s}`).then(r=>r.json());setMap(d);}catch{}
+  },[]);
 
-function AllRegionsSummary({ summary }) {
-  if (!summary?.length) return null;
-  return (
-    <div className="card overflow-hidden animate-slide-up">
-      <div className="px-4 py-3 border-b flex items-center gap-2" style={{ borderColor: '#1a3448' }}>
-        <Dot color="#00d4ff" />
-        <span className="terminal text-xs" style={{ color: '#6a8fa8' }}>ALL BASINS — COMPARATIVE OVERVIEW</span>
-      </div>
-      <div className="divide-y" style={{ borderColor: '#1a3448' }}>
-        {summary.map((r, i) => {
-          const meta = REGIONS_META[r.id] || {};
-          const color = meta.color || '#00d4ff';
-          const maxArea = Math.max(...summary.map(s => s.peak_flood_km2 || 0));
-          return (
-            <div key={r.id} className="px-4 py-3 flex items-center gap-4 hover:bg-white hover:bg-opacity-5 transition-colors cursor-default">
-              <span className="terminal text-xs w-4" style={{ color: '#2a4a63' }}>{i+1}</span>
-              <div className="w-24 flex-shrink-0">
-                <div className="font-medium text-sm" style={{ color }}>{meta.label}</div>
-                <div className="terminal text-xs" style={{ color: '#6a8fa8' }}>{r.name?.split(' ')[0]}</div>
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-0.5">
-                  <div className="flex-1 h-1.5 rounded-full" style={{ background: '#1a3448' }}>
-                    <div className="h-full rounded-full" style={{ width: `${((r.peak_flood_km2||0)/maxArea)*100}%`, background: color }} />
-                  </div>
-                  <span className="terminal text-xs w-20 text-right" style={{ color }}>{r.peak_flood_km2?.toLocaleString()} km²</span>
-                </div>
-              </div>
-              <div className="flex gap-2 flex-shrink-0">
-                <Badge color={color}>{r.accuracy_pct}%</Badge>
-                <span className="terminal text-xs" style={{ color: '#6a8fa8' }}>{r.peak_year}</span>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-// ── Main App ──────────────────────────────────────────────────
-function App() {
-  const [regions, setRegions] = useState([]);
-  const [health, setHealth] = useState(null);
-  const [selectedRegion, setSelectedRegion] = useState('brahmaputra');
-  const [selectedTask, setSelectedTask] = useState('flood_year_comparison');
-  const [report, setReport] = useState(null);
-  const [episode, setEpisode] = useState(null);
-  const [charts, setCharts] = useState(null);
-  const [termLines, setTermLines] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState('demo');
-
-  const log = (text, color, prefix) => setTermLines(prev => [...prev.slice(-80), { text, color, prefix }]);
-
-  useEffect(() => {
-    fetch(`${BASE}/health`).then(r => r.json()).then(setHealth).catch(() => {});
-    fetch(`${BASE}/regions`).then(r => r.json()).then(setRegions).catch(() => {});
-    fetch(`${BASE}/report`).then(r => r.json()).then(d => {
-      setReport(d);
-      if (d.episode) setEpisode(d.episode);
-    }).catch(() => {});
-  }, []);
-
-  const handleRegionSelect = useCallback(async (id) => {
-    setSelectedRegion(id);
-    setCharts(null);
-    setEpisode(null);
-    try {
-      const d = await fetch(`${BASE}/report`).then(r => r.json());
-      setReport(d);
-    } catch {}
-  }, []);
-
-  const doReset = useCallback(async () => {
+  const doReset=async()=>{
     setLoading(true);
-    log(`→ POST /reset  task=${selectedTask}  region=${selectedRegion}`, '#00d4ff', '▶');
-    try {
-      const r = await fetch(`${BASE}/reset`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ task_id: selectedTask, region_id: selectedRegion })
-      });
-      const d = await r.json();
-      if (!r.ok) { log(`✗ ${d.detail}`, '#ff4d6d', '✗'); return; }
-      log(`✓ episode started — ${d.task_description?.substring(0,80)}...`, '#00e887', '✓');
-      log(`  region: ${d.region_name}  steps: ${d.max_steps}`, '#6a8fa8');
-      setEpisode({ task_id: selectedTask, total_reward: 0, steps: 0, done: false, history: [] });
-      setCharts(null);
-    } catch (e) { log(`✗ ${e.message}`, '#ff4d6d', '✗'); }
-    finally { setLoading(false); }
-  }, [selectedTask, selectedRegion]);
+    log(`→ RESET  task=${task}  region=${region}  season=${season}`,'#C9962A','◈');
+    try{
+      const r=await fetch(`${B}/reset`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({task_id:task,region_id:region,season})});
+      const d=await r.json();
+      if(!r.ok){log(`✗ ${d.detail}`,'#E87070','✗');return;}
+      log(`✓ EPISODE STARTED — ${d.task_description?.substring(0,70)}...`,'#70D070','✓');
+      log(`  REGION: ${d.region_name}  MAX_STEPS: ${d.max_steps}`,'#4A3A18');
+      setEp({task_id:task,total_reward:0,steps:0,done:false,history:[]});
+    }catch(e){log(`✗ ${e.message}`,'#E87070','✗');}
+    finally{setLoading(false);}
+  };
 
-  const doAgentStep = useCallback(async () => {
+  const doStep=async()=>{
     setLoading(true);
-    log(`→ POST /agent/step  task=${selectedTask}  region=${selectedRegion}`, '#00d4ff', '▶');
-    try {
-      const r = await fetch(`${BASE}/agent/step`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ task_id: selectedTask, region_id: selectedRegion })
-      });
-      const d = await r.json();
-      if (!r.ok) { log(`✗ ${d.detail}`, '#ff4d6d', '✗'); return; }
-      log(`  [step ${d.step}] reward=${d.reward?.toFixed(3)}  done=${d.done}`, '#ffb340', 'ℹ');
-      if (d.result) log(`  ↳ ${d.result}`, '#6a8fa8');
-      log(`  agent: ${d.agent_message?.substring(0,120)}${d.agent_message?.length > 120 ? '...' : ''}`, '#8ab0c4');
-      setEpisode(prev => ({
-        task_id: selectedTask,
-        total_reward: d.total_reward || (prev?.total_reward || 0) + (d.reward || 0),
-        steps: d.step,
-        done: d.done,
-        history: [...(prev?.history || []), { step: d.step, action: d.agent_message, reward: d.reward, done: d.done }]
-      }));
-      if (d.done) {
-        log(`✓ episode complete — total reward: ${d.total_reward?.toFixed(3)}`, '#00e887', '✓');
-        await doRender();
-      }
-    } catch (e) { log(`✗ ${e.message}`, '#ff4d6d', '✗'); }
-    finally { setLoading(false); }
-  }, [selectedTask, selectedRegion]);
+    log(`→ AGENT STEP  task=${task}`,'#C9962A','▶');
+    try{
+      const r=await fetch(`${B}/agent/step`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({task_id:task,region_id:region})});
+      const d=await r.json();
+      if(!r.ok){log(`✗ ${d.detail}`,'#E87070','✗');return;}
+      log(`  [STEP ${d.step}] REWARD=${d.reward?.toFixed(3)}  DONE=${d.done}`,'#E8B84B','ℹ');
+      if(d.agent_message)log(`  ${d.agent_message?.substring(0,150)}${d.agent_message?.length>150?'...':''}`,'#7A6830');
+      setEp(prev=>({task_id:task,total_reward:d.total_reward||(prev?.total_reward||0)+(d.reward||0),steps:d.step,done:d.done,history:[...(prev?.history||[]),{step:d.step,reward:d.reward,action:d.agent_message}]}));
+      if(d.done)log(`✓ EPISODE COMPLETE — TOTAL: ${d.total_reward?.toFixed(3)}`,'#70D070','✓');
+    }catch(e){log(`✗ ${e.message}`,'#E87070','✗');}
+    finally{setLoading(false);}
+  };
 
-  const doRender = useCallback(async () => {
-    log(`→ POST /render  region=${selectedRegion}`, '#a78bfa', '▶');
-    try {
-      const r = await fetch(`${BASE}/render`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ region_id: selectedRegion })
-      });
-      const d = await r.json();
-      if (d.charts) { setCharts(d.charts); log(`✓ charts rendered: ${d.chart_names?.join(', ')}`, '#a78bfa', '✓'); }
-    } catch (e) { log(`✗ render failed: ${e.message}`, '#ff4d6d', '✗'); }
-  }, [selectedRegion]);
+  const cur=map?.regions?.find(r=>r.id===region);
+  const tm=TM[task]||{};
 
-  const currentRegionData = report
-    ? { ...REGIONS_META[selectedRegion], ...report, id: selectedRegion,
-        flood_areas: report.flood_areas
-          ? Object.fromEntries(Object.entries(report.flood_areas).map(([k,v])=>[parseInt(k),v]))
-          : {} }
-    : null;
-
-  const regionApiData = regions.find(r => r.id === selectedRegion);
-
-  return (
-    <div style={{ minHeight: '100vh' }}>
-      {/* ── Header ── */}
-      <header style={{ borderBottom: '1px solid #1a3448', background: 'rgba(6,13,20,0.9)', backdropFilter: 'blur(12px)', position: 'sticky', top: 0, zIndex: 50 }}>
-        <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 24px', height: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div className="flex items-center gap-3">
-            <div style={{ width: 32, height: 32, background: 'linear-gradient(135deg, #00d4ff22, #00e88722)', border: '1px solid #00d4ff44', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>🌊</div>
+  return(
+    <div style={{position:'relative',zIndex:1}}>
+      {/* HEADER */}
+      <header style={{borderBottom:'1px solid rgba(201,150,42,0.18)',background:'rgba(8,8,8,0.96)',backdropFilter:'blur(12px)',position:'sticky',top:0,zIndex:50,padding:'0 24px'}}>
+        <div style={{maxWidth:1320,margin:'0 auto',height:58,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+          <div style={{display:'flex',alignItems:'center',gap:14}}>
+            <div style={{width:34,height:34,border:'1px solid rgba(201,150,42,.35)',display:'flex',alignItems:'center',justifyContent:'center',background:'rgba(201,150,42,.07)',fontSize:16}}>🌊</div>
             <div>
-              <span className="font-semibold tracking-tight" style={{ fontSize: 16, color: '#e8f4f8' }}>Chronostasis</span>
-              <span className="terminal ml-2 text-xs" style={{ color: '#2a6a8a' }}>v2.0</span>
+              <div className="fd" style={{fontSize:17,letterSpacing:'.08em',color:'#E8B84B',fontWeight:600}}>CHRONOSTASIS</div>
+              <div className="fm" style={{fontSize:8,color:'#4A3A18',letterSpacing:'.2em'}}>FLOOD INTELLIGENCE SYSTEM v2.0</div>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            {health && (
-              <>
-                <div className="flex items-center gap-2 terminal text-xs" style={{ color: '#6a8fa8' }}>
-                  <Dot color="#00e887" pulse />
-                  <span>ENV LIVE</span>
-                </div>
-                {health.gee_available && <Badge color="#00e887">GEE</Badge>}
-                {health.llm_configured && <Badge color="#a78bfa">LLM</Badge>}
-                <Badge color="#00d4ff">{health.regions?.length} BASINS</Badge>
-              </>
-            )}
+          <div style={{display:'flex',alignItems:'center',gap:10}}>
+            {health&&(<>
+              <span className="bdg bdg-live"><span className="dot-p" style={{display:'inline-block',width:5,height:5,borderRadius:'50%',background:'#70D070',marginRight:4}}/>ENV LIVE</span>
+              {health.gee_available&&<span className="bdg bdg-gold">GEE</span>}
+              {health.llm_configured&&<span className="bdg bdg-gold">LLM</span>}
+              <span className="bdg bdg-gold">{health.regions?.length||15} BASINS</span>
+            </>)}
           </div>
         </div>
       </header>
 
-      <div style={{ maxWidth: 1280, margin: '0 auto', padding: '28px 24px', display: 'grid', gridTemplateColumns: '1fr 380px', gap: 24, alignItems: 'start' }}>
+      {/* HERO */}
+      <div style={{padding:'44px 24px 28px',textAlign:'center',position:'relative'}}>
+        <div className="divg" style={{marginBottom:28}}/>
+        <div className="fd" style={{fontSize:46,letterSpacing:'.06em',color:'#E8B84B',textShadow:'0 0 48px rgba(201,150,42,.45)',marginBottom:10,fontWeight:600}}>FLOOD INTELLIGENCE</div>
+        <div className="fb" style={{fontSize:14,color:'#6B5A30',letterSpacing:'.16em',textTransform:'uppercase',marginBottom:6}}>OpenEnv-Compatible Reinforcement Learning Environment</div>
+        <div className="fm" style={{fontSize:10,color:'#3A2D10',letterSpacing:'.08em'}}>Sentinel-1 SAR · CHIRPS · HydroSHEDS · SRTM · WorldPop · 15 Indian River Basins</div>
+        <div className="divg" style={{marginTop:28}}/>
+      </div>
 
-        {/* ── Left column ── */}
-        <div className="space-y-5">
+      <div style={{maxWidth:1320,margin:'0 auto',padding:'0 24px 60px',display:'grid',gridTemplateColumns:'1fr 332px',gap:20}}>
+        {/* LEFT */}
+        <div style={{display:'flex',flexDirection:'column',gap:14}}>
 
-          {/* Hero text */}
-          <div>
-            <h1 style={{ fontSize: 28, fontWeight: 600, color: '#e8f4f8', lineHeight: 1.2, letterSpacing: '-0.02em' }}>
-              Flood Intelligence{' '}
-              <span style={{ color: '#00d4ff', textShadow: '0 0 20px rgba(0,212,255,0.4)' }}>Environment</span>
-            </h1>
-            <p style={{ marginTop: 8, color: '#6a8fa8', fontSize: 14, lineHeight: 1.6 }}>
-              OpenEnv-compatible RL environment · 5 Indian river basins · Sentinel-1 SAR + CHIRPS + SRTM
-            </p>
-          </div>
-
-          {/* Region selector */}
-          <div className="card p-4 space-y-3">
-            <div className="flex items-center gap-2">
-              <span className="terminal text-xs" style={{ color: '#6a8fa8' }}>SELECT BASIN</span>
+          {/* Season */}
+          <DC>
+            <div className="fm" style={{fontSize:9,color:'#4A3A18',letterSpacing:'.15em',marginBottom:10}}>◈ SELECT SEASON</div>
+            <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+              {Object.entries(SL).map(([id,s])=>(
+                <button key={id} className="btn" onClick={()=>{setSeason(id);fetchMap(id);}}
+                  style={{padding:'6px 12px',fontSize:11,borderColor:season===id?s.c:'rgba(201,150,42,.12)',background:season===id?`${s.c}15`:'transparent',color:season===id?s.c:'#4A3A18',boxShadow:season===id?`0 0 12px ${s.c}22`:'none'}}>
+                  <div className="fb" style={{fontSize:12,fontWeight:600}}>{s.label}</div>
+                  <div className="fm" style={{fontSize:9,opacity:.65}}>{s.months}</div>
+                </button>
+              ))}
             </div>
-            <RegionSelector regions={regions} selected={selectedRegion} onSelect={handleRegionSelect} />
-          </div>
+          </DC>
+
+          {/* Regions */}
+          <DC>
+            <div className="fm" style={{fontSize:9,color:'#4A3A18',letterSpacing:'.15em',marginBottom:10}}>◈ SELECT BASIN — {map?.total_regions||regions.length||15} REGIONS</div>
+            <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+              {(map?.regions||[]).map(r=>{
+                const rc=RC[r.risk_level]||'#C9962A';
+                const on=region===r.id;
+                return(
+                  <button key={r.id} className={`rbtn ${on?'on':''}`} onClick={()=>setRegion(r.id)} style={{minWidth:130}}>
+                    <div style={{display:'flex',alignItems:'center',gap:5,marginBottom:2}}>
+                      <div style={{width:5,height:5,background:rc,boxShadow:`0 0 5px ${rc}`,flexShrink:0}}/>
+                      <span className="fb" style={{fontSize:12,fontWeight:700,color:on?'#E8B84B':'#D4C89A'}}>{r.name?.split(' ')[0]||r.id}</span>
+                    </div>
+                    <div className="fm" style={{fontSize:9,color:'#4A3A18'}}>{r.state?.split('/')[0].trim()}</div>
+                    {r.accuracy_pct&&<div className="fm" style={{fontSize:9,color:on?'#C9962A':'#3A2D10',marginTop:2}}>{r.accuracy_pct}% acc</div>}
+                  </button>
+                );
+              })}
+            </div>
+          </DC>
 
           {/* Tabs */}
           <div>
-            <div className="flex border-b" style={{ borderColor: '#1a3448' }}>
-              {[['demo','AGENT DEMO'],['stats','BASIN STATS'],['all','ALL BASINS'],['api','API']].map(([id,label]) => (
-                <button key={id} className={`tab ${activeTab===id?'active':''}`} onClick={() => setActiveTab(id)}>{label}</button>
+            <div style={{display:'flex',borderBottom:'1px solid rgba(201,150,42,.14)'}}>
+              {[['demo','◈ AGENT DEMO'],['map','◈ RISK MAP'],['basins','◈ ALL BASINS'],['api','◈ API']].map(([id,l])=>(
+                <button key={id} className={`tab ${tab===id?'on':''}`} onClick={()=>setTab(id)}>{l}</button>
               ))}
             </div>
+            <div style={{marginTop:14}}>
 
-            <div className="mt-4 space-y-4">
-              {activeTab === 'demo' && (
-                <>
-                  <div className="card p-4 space-y-3">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Dot color="#00d4ff" />
-                      <span className="terminal text-xs" style={{ color: '#6a8fa8' }}>TASK CONFIGURATION</span>
+              {/* DEMO */}
+              {tab==='demo'&&(
+                <div style={{display:'flex',flexDirection:'column',gap:12}}>
+                  <DC>
+                    <div className="fm" style={{fontSize:9,color:'#4A3A18',letterSpacing:'.15em',marginBottom:10}}>◈ TASK CONFIGURATION</div>
+                    <div style={{display:'flex',flexWrap:'wrap',gap:8,marginBottom:12}}>
+                      {Object.entries(TM).map(([id,m])=>(
+                        <button key={id} className="btn" onClick={()=>setTask(id)}
+                          style={{borderColor:task===id?m.color:'rgba(201,150,42,.12)',background:task===id?`${m.color}10`:'transparent',color:task===id?m.color:'#4A3A18',boxShadow:task===id?`0 0 10px ${m.color}1a`:'none'}}>
+                          <span className={`bdg bdg-${m.diff.toLowerCase()}`}>{m.diff}</span>
+                          <span className="fb" style={{fontSize:12,fontWeight:500}}>{m.label}</span>
+                          <span className="fm" style={{fontSize:9,opacity:.5}}>/{m.steps}</span>
+                        </button>
+                      ))}
                     </div>
-                    <TaskSelector selected={selectedTask} onSelect={setSelectedTask} />
-                    <div className="flex gap-2 pt-1">
-                      <button className="btn btn-primary" onClick={doReset} disabled={loading}>
-                        ◈ Reset Episode
-                      </button>
-                      <button className="btn btn-emerald" onClick={doAgentStep} disabled={loading}>
-                        ▶ Agent Step
-                      </button>
-                      <button className="btn" onClick={doRender} disabled={loading}
-                        style={{ borderColor:'#a78bfa44', background:'#a78bfa12', color:'#a78bfa' }}>
-                        ◎ Render Charts
-                      </button>
-                      <button className="btn btn-rose" onClick={() => setTermLines([])} style={{ marginLeft: 'auto' }}>
-                        Clear
-                      </button>
+                    <div style={{display:'flex',gap:8}}>
+                      <button className="btn btn-g" onClick={doReset} disabled={loading}>◈ RESET EPISODE</button>
+                      <button className="btn btn-g" onClick={doStep} disabled={loading}>▶ AGENT STEP</button>
+                      <button className="btn btn-d" onClick={()=>setLines([])} style={{marginLeft:'auto'}}>CLEAR</button>
                     </div>
-                  </div>
-
-                  <Terminal lines={termLines} loading={loading} />
-
-                  {episode && <EpisodePanel episode={episode} regionId={selectedRegion} />}
-
-                  {episode?.history?.length > 0 && (
+                  </DC>
+                  <Term lines={lines} loading={loading}/>
+                  {ep&&(
+                    <DC active className="ani-u">
+                      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+                        <div style={{display:'flex',alignItems:'center',gap:8}}>
+                          <div className="dot-p" style={{width:7,height:7,background:ep.done?'#70D070':'#E8B84B',boxShadow:`0 0 6px ${ep.done?'#70D070':'#E8B84B'}`}}/>
+                          <span className="fm" style={{fontSize:10,color:'#4A3A18',letterSpacing:'.1em'}}>EPISODE STATUS</span>
+                        </div>
+                        <div style={{display:'flex',gap:6}}>
+                          <span className={`bdg bdg-${tm.diff?.toLowerCase()}`}>{tm.diff}</span>
+                          <span className="bdg bdg-gold">{cur?.name?.split(' ')[0]||region}</span>
+                        </div>
+                      </div>
+                      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8,marginBottom:10}}>
+                        {[['STEP',`${ep.steps}/${tm.steps||'?'}`,'#D4C89A'],['REWARD',ep.total_reward.toFixed(3),tm.color||'#E8B84B'],['STATUS',ep.done?'COMPLETE':'ACTIVE',ep.done?'#70D070':'#E8B84B']].map(([l,v,c])=>(
+                          <div key={l} className="stat">
+                            <div className="fm" style={{fontSize:8,color:'#3A2D10',letterSpacing:'.14em',marginBottom:3}}>{l}</div>
+                            <div className="fm" style={{fontSize:14,fontWeight:700,color:c}}>{v}</div>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="fm" style={{fontSize:8,color:'#3A2D10',marginBottom:4}}>CUMULATIVE REWARD</div>
+                      <RBar val={ep.total_reward}/>
+                    </DC>
+                  )}
+                  {ep?.history?.length>0&&(
                     <div>
-                      <p className="terminal text-xs mb-2" style={{ color: '#6a8fa8' }}>STEP HISTORY</p>
-                      <StepHistory history={episode.history} taskId={selectedTask} />
+                      <div className="fm" style={{fontSize:8,color:'#3A2D10',letterSpacing:'.15em',marginBottom:8}}>◈ STEP HISTORY</div>
+                      {ep.history.slice(-4).map((h,i)=>(
+                        <div key={i} className="card ani-u" style={{padding:'9px 12px',marginBottom:5,borderColor:h.reward>0.3?'rgba(201,150,42,.22)':'rgba(201,150,42,.07)'}}>
+                          <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:3}}>
+                            <span className="bdg bdg-gold" style={{fontSize:8}}>STEP {h.step}</span>
+                            <div style={{flex:1}}><RBar val={h.reward||0}/></div>
+                            <span className="fm" style={{fontSize:11,color:'#E8B84B'}}>+{h.reward?.toFixed(3)}</span>
+                          </div>
+                          {h.action&&<p className="fb" style={{fontSize:12,color:'#7A6830',lineHeight:1.5}}>{h.action.substring(0,140)}{h.action.length>140?'...':''}</p>}
+                        </div>
+                      ))}
                     </div>
                   )}
-
-                  {charts && <ChartView charts={charts} />}
-                </>
+                </div>
               )}
 
-              {activeTab === 'stats' && (
-                <RegionStatsPanel regionData={currentRegionData || regionApiData} />
-              )}
-
-              {activeTab === 'all' && (
-                <AllRegionsSummary summary={report?.all_regions_summary} />
-              )}
-
-              {activeTab === 'api' && (
-                <div className="card p-4 space-y-4">
-                  <p className="terminal text-xs" style={{ color: '#6a8fa8' }}>OPENENV API ENDPOINTS</p>
-                  {[
-                    ['POST', '/reset', 'Start episode', '{"task_id": "flood_year_comparison", "region_id": "brahmaputra"}'],
-                    ['POST', '/step', 'Submit agent action', '{"message": "2022 had the largest SAR flood extent at 4812.3 km²..."}'],
-                    ['GET',  '/state', 'Get episode state', null],
-                    ['POST', '/agent/step', 'Run built-in LLM agent', '{"task_id": "...", "region_id": "..."}'],
-                    ['GET',  '/regions', 'List all 5 river basins', null],
-                    ['GET',  '/tasks', 'List all 3 tasks', null],
-                    ['GET',  '/report', 'Full region + episode data', null],
-                    ['POST', '/render', 'Generate matplotlib charts', '{"region_id": "ganga"}'],
-                    ['GET',  '/health', 'Environment health check', null],
-                  ].map(([method, path, desc, body]) => (
-                    <div key={path} className="card p-3 space-y-1">
-                      <div className="flex items-center gap-2">
-                        <Badge color={method==='POST'?'#00e887':'#00d4ff'}>{method}</Badge>
-                        <span className="terminal font-bold" style={{ color: '#e8f4f8', fontSize: 13 }}>{path}</span>
-                        <span className="text-xs ml-auto" style={{ color: '#6a8fa8' }}>{desc}</span>
-                      </div>
-                      {body && (
-                        <div className="terminal text-xs p-2 rounded mt-2" style={{ background: '#040b10', color: '#6a8fa8', fontSize: 11 }}>
-                          {body}
+              {/* MAP */}
+              {tab==='map'&&(
+                <DC>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
+                    <div className="fm" style={{fontSize:9,color:'#4A3A18',letterSpacing:'.15em'}}>◈ ALL-INDIA RISK — {season.replace('_',' ').toUpperCase()}</div>
+                    <div style={{display:'flex',gap:8}}>
+                      {Object.entries(RC).map(([l,c])=>(
+                        <div key={l} style={{display:'flex',alignItems:'center',gap:4}}>
+                          <div style={{width:7,height:7,background:c}}/>
+                          <span className="fm" style={{fontSize:8,color:'#3A2D10'}}>{l.toUpperCase()}</span>
                         </div>
-                      )}
+                      ))}
+                    </div>
+                  </div>
+                  <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(190px,1fr))',gap:7}}>
+                    {(map?.regions||[]).sort((a,b)=>(b.seasonal_risk||0)-(a.seasonal_risk||0)).map(r=>{
+                      const rc=RC[r.risk_level]||'#C9962A';
+                      const on=region===r.id;
+                      return(
+                        <div key={r.id} className={`rbtn ${on?'on':''}`} onClick={()=>setRegion(r.id)} style={{padding:'11px 13px'}}>
+                          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:5}}>
+                            <span className="fb" style={{fontSize:12,fontWeight:700,color:on?'#E8B84B':'#D4C89A'}}>{r.name?.split(' ')[0]}</span>
+                            <span className="bdg" style={{background:`${rc}15`,border:`1px solid ${rc}33`,color:rc,fontSize:8}}>{r.risk_level?.toUpperCase()}</span>
+                          </div>
+                          <div className="fm" style={{fontSize:9,color:'#3A2D10',marginBottom:5}}>{r.state?.split('/')[0].trim()}</div>
+                          <div style={{height:2,background:'#1a1a1a',marginBottom:4}}>
+                            <div style={{height:'100%',width:`${(r.seasonal_risk||0)*100}%`,background:rc,transition:'width .6s'}}/>
+                          </div>
+                          <div style={{display:'flex',justifyContent:'space-between'}}>
+                            <span className="fm" style={{fontSize:9,color:'#3A2D10'}}>Risk {Math.round((r.seasonal_risk||0)*100)}%</span>
+                            <span className="fm" style={{fontSize:9,color:'#3A2D10'}}>{(r.chronic_pop/1e6).toFixed(1)}M</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </DC>
+              )}
+
+              {/* BASINS */}
+              {tab==='basins'&&map?.regions&&(
+                <DC>
+                  <div className="fm" style={{fontSize:9,color:'#4A3A18',letterSpacing:'.15em',marginBottom:14}}>◈ COMPARATIVE OVERVIEW — {map.regions.length} BASINS</div>
+                  <div style={{overflowX:'auto'}}>
+                    <table style={{width:'100%',borderCollapse:'collapse'}}>
+                      <thead>
+                        <tr style={{borderBottom:'1px solid rgba(201,150,42,.18)'}}>
+                          {['Basin','State','Peak Year','Peak Flood','At Risk','Accuracy','Risk Level'].map(h=>(
+                            <th key={h} style={{padding:'5px 10px',textAlign:'left',fontFamily:'Share Tech Mono',fontSize:8,color:'#4A3A18',letterSpacing:'.1em',fontWeight:400}}>{h.toUpperCase()}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {map.regions.map(r=>{
+                          const rc=RC[r.risk_level]||'#C9962A';
+                          const on=region===r.id;
+                          return(
+                            <tr key={r.id} onClick={()=>setRegion(r.id)} style={{borderBottom:'1px solid rgba(201,150,42,.05)',cursor:'pointer',background:on?'rgba(201,150,42,.04)':'transparent',transition:'background .15s'}}>
+                              <td style={{padding:'7px 10px',fontFamily:'Rajdhani',fontWeight:700,fontSize:13,color:on?'#E8B84B':'#D4C89A'}}>{r.name?.split(' ')[0]}</td>
+                              <td style={{padding:'7px 10px',fontFamily:'Share Tech Mono',fontSize:9,color:'#4A3A18'}}>{r.state?.split('/')[0].trim()}</td>
+                              <td style={{padding:'7px 10px',fontFamily:'Share Tech Mono',fontSize:10,color:'#C9962A'}}>{r.peak_year}</td>
+                              <td style={{padding:'7px 10px',fontFamily:'Share Tech Mono',fontSize:10,color:'#D4C89A'}}>{r.peak_flood_km2?.toLocaleString()} km²</td>
+                              <td style={{padding:'7px 10px',fontFamily:'Share Tech Mono',fontSize:10,color:'#7A6830'}}>{(r.chronic_pop/1e6).toFixed(1)}M</td>
+                              <td style={{padding:'7px 10px',fontFamily:'Share Tech Mono',fontSize:10,color:'#C9962A'}}>{r.accuracy_pct}%</td>
+                              <td style={{padding:'7px 10px'}}><span className="bdg" style={{background:`${rc}15`,border:`1px solid ${rc}30`,color:rc,fontSize:8}}>{r.risk_level?.toUpperCase()}</span></td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </DC>
+              )}
+
+              {/* API */}
+              {tab==='api'&&(
+                <DC>
+                  <div className="fm" style={{fontSize:9,color:'#4A3A18',letterSpacing:'.15em',marginBottom:14}}>◈ OPENENV API ENDPOINTS</div>
+                  {[['POST','/reset','Start episode','{"task_id":"flood_year_comparison","region_id":"brahmaputra","season":"kharif"}'],['POST','/step','Submit action','{"message":"2022 had 4812.3 km² SAR extent..."}'],['GET','/state','Episode state',null],['POST','/agent/step','4-Agent pipeline','{"task_id":"...","region_id":"..."}'],['GET','/regions','All 15 basins',null],['GET','/tasks','All 3 tasks',null],['GET','/india_risk_map','All-India risk','?season=kharif'],['GET','/seasons','Available seasons',null],['GET','/health','Health check',null]].map(([m,p,d,b])=>(
+                    <div key={p} className="card" style={{padding:'9px 12px',marginBottom:6}}>
+                      <div style={{display:'flex',alignItems:'center',gap:7}}>
+                        <span className="bdg" style={{background:m==='POST'?'rgba(40,140,40,.15)':'rgba(201,150,42,.12)',border:`1px solid ${m==='POST'?'rgba(40,180,40,.25)':'rgba(201,150,42,.28)'}`,color:m==='POST'?'#70D070':'#E8B84B'}}>{m}</span>
+                        <span className="fm" style={{color:'#D4C89A',fontSize:12}}>{p}</span>
+                        <span className="fb" style={{marginLeft:'auto',fontSize:11,color:'#3A2D10'}}>{d}</span>
+                      </div>
+                      {b&&<div className="fm" style={{fontSize:9,color:'#3A2D10',marginTop:5,padding:'3px 8px',background:'#040404',borderLeft:'2px solid rgba(201,150,42,.18)'}}>{b}</div>}
                     </div>
                   ))}
-                </div>
+                </DC>
               )}
             </div>
           </div>
         </div>
 
-        {/* ── Right column ── */}
-        <div className="space-y-4">
+        {/* RIGHT SIDEBAR */}
+        <div style={{display:'flex',flexDirection:'column',gap:12}}>
 
-          {/* Task cards */}
-          <div className="space-y-3">
-            <p className="terminal text-xs" style={{ color: '#6a8fa8' }}>TASKS</p>
-            {Object.entries(TASK_META).map(([id, meta]) => (
-              <div key={id} className="card p-4 cursor-pointer transition-all"
-                onClick={() => { setSelectedTask(id); setActiveTab('demo'); }}
-                style={{ borderColor: selectedTask===id ? `${meta.color}55` : '#1a3448', background: selectedTask===id ? `${meta.color}08` : '#0c1a26' }}>
-                <div className="flex items-start justify-between gap-2 mb-2">
-                  <span className="font-medium text-sm" style={{ color: selectedTask===id ? meta.color : '#c8dde8' }}>{meta.label}</span>
-                  <Badge color={meta.color}>{meta.diff}</Badge>
+          {/* Basin detail */}
+          {cur&&(
+            <DC active className="ani-f">
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:10}}>
+                <div>
+                  <div className="fd" style={{fontSize:15,letterSpacing:'.1em',color:'#E8B84B',marginBottom:2}}>{cur.name}</div>
+                  <div className="fm" style={{fontSize:9,color:'#4A3A18'}}>{cur.state} · {cur.river}</div>
                 </div>
-                <div className="flex gap-3 terminal text-xs" style={{ color: '#6a8fa8' }}>
-                  <span>max {meta.steps} steps</span>
-                  <span>·</span>
-                  <span>reward ∈ (0,1)</span>
-                </div>
+                <span className="bdg bdg-gold">{cur.accuracy_pct}%</span>
               </div>
-            ))}
-          </div>
-
-          {/* Baseline results */}
-          <div className="card p-4 space-y-3">
-            <div className="flex items-center gap-2">
-              <Dot color="#a78bfa" />
-              <span className="terminal text-xs" style={{ color: '#6a8fa8' }}>BASELINE RESULTS — Qwen2.5-72B</span>
-            </div>
-            {[['flood_year_comparison', 0.850], ['district_inundation_report', 0.620], ['flood_risk_forecast', 0.710]].map(([id, score]) => {
-              const meta = TASK_META[id];
-              return (
-                <div key={id} className="space-y-1">
-                  <div className="flex justify-between terminal text-xs">
-                    <span style={{ color: '#6a8fa8' }}>{meta?.diff}</span>
-                    <span style={{ color: meta?.color }}>{score.toFixed(3)}</span>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,marginBottom:10}}>
+                {[['PEAK YEAR',cur.peak_year,'#C9962A'],['PEAK AREA',`${cur.peak_flood_km2?.toLocaleString()} km²`,'#E87070'],['CHRONIC AREA',`${cur.chronic_km2?.toLocaleString()} km²`,'#E8B84B'],['AT RISK',`${(cur.chronic_pop/1e6).toFixed(1)}M`,'#C9962A']].map(([l,v,c])=>(
+                  <div key={l} className="stat">
+                    <div className="fm" style={{fontSize:8,color:'#3A2D10',letterSpacing:'.12em',marginBottom:2}}>{l}</div>
+                    <div className="fm" style={{fontSize:13,color:c,fontWeight:700}}>{v}</div>
                   </div>
-                  <RewardBar value={score} />
+                ))}
+              </div>
+              <div className="fm" style={{fontSize:8,color:'#3A2D10',marginBottom:4}}>SEASONAL RISK — {season.replace('_',' ').toUpperCase()}</div>
+              <div style={{height:3,background:'#111',marginBottom:8}}>
+                <div style={{height:'100%',width:`${(cur.seasonal_risk||0)*100}%`,background:'linear-gradient(90deg,#8B651566,#C9962A)',boxShadow:'0 0 8px rgba(201,150,42,.4)',transition:'width .6s'}}/>
+              </div>
+              {cur.high_risk_zones?.map(z=>(
+                <div key={z} style={{display:'flex',alignItems:'center',gap:5,marginBottom:3}}>
+                  <div style={{width:3,height:3,background:'#E87070',flexShrink:0}}/>
+                  <span className="fm" style={{fontSize:9,color:'#7A6830'}}>{z}</span>
                 </div>
-              );
-            })}
-          </div>
+              ))}
+            </DC>
+          )}
 
-          {/* Data sources */}
-          <div className="card p-4 space-y-2">
-            <p className="terminal text-xs mb-3" style={{ color: '#6a8fa8' }}>DATA SOURCES</p>
-            {[
-              ['Sentinel-1 SAR VV', '2022–2024 June–Sept', '#00d4ff'],
-              ['CHIRPS Daily', 'Ground-calibrated rainfall', '#00e887'],
-              ['HydroSHEDS 15ACC', 'Flow accumulation', '#ffb340'],
-              ['SRTM DEM', 'Elevation & slope', '#a78bfa'],
-              ['Landsat 8 NDWI', 'Permanent water mask', '#f472b6'],
-              ['FAO GAUL', 'District boundaries', '#6a8fa8'],
-            ].map(([src, desc, color]) => (
-              <div key={src} className="flex items-center gap-2">
-                <Dot color={color} />
-                <div className="flex-1 min-w-0">
-                  <span className="terminal text-xs font-bold" style={{ color }}>{src}</span>
-                  <span className="terminal text-xs ml-2" style={{ color: '#6a8fa8' }}>{desc}</span>
+          {/* Tasks */}
+          <div>
+            <div className="fm" style={{fontSize:8,color:'#3A2D10',letterSpacing:'.15em',marginBottom:7}}>◈ TASKS</div>
+            {Object.entries(TM).map(([id,m])=>(
+              <div key={id} className={`card ${task===id?'card-active':''}`} onClick={()=>{setTask(id);setTab('demo');}}
+                style={{padding:'11px 13px',marginBottom:5,cursor:'pointer',transition:'all .15s',borderColor:task===id?`${m.color}44`:'rgba(201,150,42,.1)'}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:3}}>
+                  <span className="fb" style={{fontSize:13,fontWeight:700,color:task===id?m.color:'#D4C89A'}}>{m.label}</span>
+                  <span className={`bdg bdg-${m.diff.toLowerCase()}`}>{m.diff}</span>
                 </div>
+                <div className="fm" style={{fontSize:9,color:'#3A2D10'}}>max {m.steps} steps · reward ∈ (0,1)</div>
               </div>
             ))}
           </div>
+
+          {/* Results */}
+          <DC>
+            <div className="fm" style={{fontSize:8,color:'#4A3A18',letterSpacing:'.15em',marginBottom:11}}>◈ TRAINING RESULTS</div>
+            {[['BASELINE',[0.01,0.01,0.01],'#3A2D10'],['SFT 1.5B',[0.65,null,null],'#6B5A30'],['GRPO 1.5B',[0.884,0.688,null],'#C9962A'],['GRPO 3B',[null,0.823,0.842],'#E8B84B'],['4-AGENT',[0.99,0.99,0.70],'#E8B84B']].map(([l,v,c])=>(
+              <div key={l} style={{marginBottom:7}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:2}}>
+                  <span className="fm" style={{fontSize:9,color:c}}>{l}</span>
+                  <div style={{display:'flex',gap:10}}>
+                    {v.map((val,i)=>(
+                      <span key={i} className="fm" style={{fontSize:10,color:val!=null?c:'#1a1a1a',minWidth:28,textAlign:'right'}}>{val!=null?val.toFixed(2):'—'}</span>
+                    ))}
+                  </div>
+                </div>
+                {l==='4-AGENT'&&<div style={{height:2,background:'#111'}}><div style={{width:'99%',height:'100%',background:`linear-gradient(90deg,${c}44,${c})`,boxShadow:`0 0 8px ${c}44`}}/></div>}
+              </div>
+            ))}
+            <div style={{display:'flex',justifyContent:'flex-end',gap:16,marginTop:6}}>
+              {['EASY','MED','HARD'].map(t=><span key={t} className="fm" style={{fontSize:8,color:'#3A2D10'}}>{t}</span>)}
+            </div>
+          </DC>
 
           {/* Links */}
-          <div className="card p-4 space-y-2">
-            <p className="terminal text-xs mb-2" style={{ color: '#6a8fa8' }}>LINKS</p>
-            {[
-              ['GitHub', 'lunasingha1928-oss/Chronostasis', 'https://github.com/lunasingha1928-oss/Chronostasis', '#00d4ff'],
-              ['HF Space', 'LunaAmagi/chronostasis', 'https://huggingface.co/spaces/LunaAmagi/chronostasis', '#f4c842'],
-              ['API Docs', '/docs', '/docs', '#a78bfa'],
-            ].map(([label, text, href, color]) => (
-              <a key={label} href={href} target="_blank" rel="noopener" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-                <span className="terminal text-xs w-16" style={{ color: '#6a8fa8' }}>{label}</span>
-                <span className="terminal text-xs" style={{ color }}>{text}</span>
+          <DC>
+            <div className="fm" style={{fontSize:8,color:'#4A3A18',letterSpacing:'.15em',marginBottom:9}}>◈ RESOURCES</div>
+            {[['GitHub','lunasingha1928-oss/Chronostasis','https://github.com/lunasingha1928-oss/Chronostasis'],['HF Space','LunaAmagi/chronostasis','https://huggingface.co/spaces/LunaAmagi/chronostasis'],['SFT Model','chronostasis-sft-trained','https://huggingface.co/LunaAmagi/chronostasis-sft-trained'],['3B Model','chronostasis-3b-grpo-medium','https://huggingface.co/LunaAmagi/chronostasis-3b-grpo-medium'],['API Docs','/docs','/docs']].map(([l,t,h])=>(
+              <a key={l} href={h} target="_blank" rel="noopener" style={{display:'flex',alignItems:'center',gap:7,marginBottom:5,textDecoration:'none',padding:'3px 0'}}>
+                <div style={{width:3,height:3,background:'#4A3A18',flexShrink:0}}/>
+                <span className="fm" style={{fontSize:9,color:'#4A3A18',minWidth:55}}>{l}</span>
+                <span className="fm" style={{fontSize:9,color:'#3A2D10'}}>{t}</span>
               </a>
             ))}
-          </div>
+          </DC>
+
+          {/* Data sources */}
+          <DC>
+            <div className="fm" style={{fontSize:8,color:'#4A3A18',letterSpacing:'.15em',marginBottom:9}}>◈ DATA SOURCES</div>
+            {[['Sentinel-1 SAR VV','2022–2024 Jun–Sep'],['CHIRPS Daily','Ground-calibrated rainfall'],['HydroSHEDS 15ACC','Flow accumulation'],['SRTM DEM','Elevation & slope'],['Landsat 8 NDWI','Permanent water mask'],['FAO GAUL','District boundaries'],['WorldPop 2020','Population density']].map(([s,d])=>(
+              <div key={s} style={{display:'flex',gap:7,marginBottom:5}}>
+                <div style={{width:3,height:3,background:'#8B6515',flexShrink:0,marginTop:4}}/>
+                <div>
+                  <div className="fm" style={{fontSize:9,color:'#7A6830'}}>{s}</div>
+                  <div className="fm" style={{fontSize:8,color:'#3A2D10'}}>{d}</div>
+                </div>
+              </div>
+            ))}
+          </DC>
         </div>
       </div>
     </div>
   );
 }
-
-const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(<App />);
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
 </script>
 </body>
 </html>
