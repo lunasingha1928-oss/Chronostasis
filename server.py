@@ -2,7 +2,8 @@
 server.py — Chronostasis OpenEnv Environment Server v2.0
 =========================================================
 Multi-region flood intelligence environment for 15 Indian river basins.
-Uses trained RL model (chronostasis-3b-grpo-medium) via HF Inference API.
+4-Agent pipeline (Data Analyst → Domain Expert → Critic → Aggregator)
+all running on the trained RL model (chronostasis-3b-grpo-medium).
 Falls back to Qwen2.5-72B via HF router if trained model unavailable.
 """
 
@@ -26,31 +27,28 @@ from tasks import TASK_REGISTRY, REGIONS, DEFAULT_REGION, BaseTask
 from renderer import render_flood_report
 
 
-# ──────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────
 # CONFIG
-# ──────────────────────────────────────────────
-GEE_PROJECT    = os.getenv("GEE_PROJECT", "your-gee-project-id")
-HF_TOKEN       = os.getenv("HF_TOKEN", "") or os.getenv("API_KEY", "")
+# ─────────────────────────────────────────────────────────
+GEE_PROJECT   = os.getenv("GEE_PROJECT", "your-gee-project-id")
+HF_TOKEN      = os.getenv("HF_TOKEN", "") or os.getenv("API_KEY", "")
 
-TRAINED_MODEL  = os.getenv("TRAINED_MODEL",       "LunaAmagi/chronostasis-3b-grpo-medium")
-BASE_MODEL     = os.getenv("BASE_MODEL",           "Qwen/Qwen2.5-72B-Instruct")
-USE_TRAINED    = os.getenv("USE_TRAINED_MODEL",    "true").lower() != "false"
-MODEL_NAME     = TRAINED_MODEL if USE_TRAINED else BASE_MODEL
+TRAINED_MODEL = os.getenv("TRAINED_MODEL",      "LunaAmagi/chronostasis-3b-grpo-medium")
+BASE_MODEL    = os.getenv("BASE_MODEL",          "Qwen/Qwen2.5-72B-Instruct")
+USE_TRAINED   = os.getenv("USE_TRAINED_MODEL",   "true").lower() != "false"
+MODEL_NAME    = TRAINED_MODEL if USE_TRAINED else BASE_MODEL
 
 HF_INFERENCE_URL = f"https://api-inference.huggingface.co/models/{TRAINED_MODEL}"
 HF_ROUTER_URL    = "https://router.huggingface.co/v1"
 
-SYSTEM_PROMPT = (
-    "You are a precise GIS flood analyst for Indian river basins. "
-    "Always cite exact km² figures, district names, CHIRPS rainfall totals, "
-    "DEM elevation values, HydroSHEDS flow accumulation, and causal factors. "
-    "Never be vague. Respond in clear prose only."
-)
+# Agent temperature — low = deterministic, good for trained model
+AGENT_TEMPERATURE = 0.2
+MAX_TOKENS        = 300
 
 
-# ──────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────
 # GEE INIT
-# ──────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────
 def init_gee():
     sa_json = os.getenv("GEE_SERVICE_ACCOUNT_JSON")
     try:
@@ -69,9 +67,9 @@ def init_gee():
 GEE_AVAILABLE = init_gee()
 
 
-# ──────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────
 # PYDANTIC MODELS
-# ──────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────
 class FloodObservation(BaseModel):
     task_id:            str
     task_description:   str
@@ -121,54 +119,35 @@ class CompareRequest(BaseModel):
     task_id:   str = "flood_year_comparison"
     region_id: str = "brahmaputra"
 
-class TaskInfo(BaseModel):
-    id:          str
-    name:        str
-    description: str
-    difficulty:  str
-    max_steps:   int
-    region_id:   str
 
-class RegionInfo(BaseModel):
-    id:           str
-    name:         str
-    state:        str
-    river:        str
-    peak_year:    int
-    accuracy_pct: float
-    flood_areas:  Dict[str, float]
-
-
-# ──────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────
 # EPISODE STATE
-# ──────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────
 class EpisodeState:
     def __init__(self, task: BaseTask, region_id: str):
-        self.episode_id    = str(uuid.uuid4())
-        self.task          = task
-        self.region_id     = region_id
-        self.step          = 0
-        self.done          = False
-        self.total_reward  = 0.0
+        self.episode_id   = str(uuid.uuid4())
+        self.task         = task
+        self.region_id    = region_id
+        self.step         = 0
+        self.done         = False
+        self.total_reward = 0.0
         self.history: List[Dict[str, Any]] = []
-        self.started_at    = time.time()
+        self.started_at   = time.time()
 
 _current_episode: Optional[EpisodeState] = None
 
 
-# ──────────────────────────────────────────────
-# LLM CLIENTS
-# ──────────────────────────────────────────────
-def get_router_client() -> OpenAI:
-    """HF router — OpenAI-compatible, used for base model fallback."""
-    return OpenAI(base_url=HF_ROUTER_URL, api_key=HF_TOKEN)
-
-
+# ─────────────────────────────────────────────────────────
+# LLM — TRAINED MODEL VIA HF INFERENCE API
+# ─────────────────────────────────────────────────────────
 def call_trained_model(prompt: str, max_retries: int = 3) -> str:
     """
-    Calls the fine-tuned RL model via HF Inference API.
-    Returns generated text or raises on failure.
+    Calls trained RL model via HF Inference API.
+    Prompt should already be formatted with Qwen2.5 chat template.
     """
+    if not HF_TOKEN:
+        raise ValueError("No HF_TOKEN configured")
+
     headers = {
         "Authorization": f"Bearer {HF_TOKEN}",
         "Content-Type":  "application/json",
@@ -176,8 +155,8 @@ def call_trained_model(prompt: str, max_retries: int = 3) -> str:
     payload = json.dumps({
         "inputs": prompt,
         "parameters": {
-            "max_new_tokens":   300,
-            "temperature":      0.2,
+            "max_new_tokens":   MAX_TOKENS,
+            "temperature":      AGENT_TEMPERATURE,
             "do_sample":        True,
             "return_full_text": False,
         },
@@ -189,40 +168,46 @@ def call_trained_model(prompt: str, max_retries: int = 3) -> str:
                 HF_INFERENCE_URL, data=payload, method="POST", headers=headers)
             with urllib.request.urlopen(req, timeout=60) as r:
                 result = json.loads(r.read().decode())
-                if isinstance(result, list) and result:
-                    text = result[0].get("generated_text", "").strip()
-                elif isinstance(result, dict) and "generated_text" in result:
-                    text = result["generated_text"].strip()
-                elif isinstance(result, dict) and "error" in result:
-                    if "loading" in result["error"].lower() and attempt < max_retries - 1:
-                        wait = min(result.get("estimated_time", 20), 30)
-                        print(f"[INFO] Model loading, waiting {wait}s...", flush=True)
-                        time.sleep(wait)
-                        continue
-                    raise ValueError(result["error"])
-                else:
-                    raise ValueError(f"Unexpected response: {str(result)[:100]}")
-                # Strip chat template tokens
-                return text.replace("<|im_end|>", "").strip()
+
+            if isinstance(result, list) and result:
+                text = result[0].get("generated_text", "").strip()
+            elif isinstance(result, dict) and "generated_text" in result:
+                text = result["generated_text"].strip()
+            elif isinstance(result, dict) and "error" in result:
+                if "loading" in result["error"].lower() and attempt < max_retries - 1:
+                    wait = min(result.get("estimated_time", 20), 30)
+                    print(f"[INFO] Model loading, waiting {wait}s...", flush=True)
+                    time.sleep(wait)
+                    continue
+                raise ValueError(result["error"])
+            else:
+                raise ValueError(f"Unexpected: {str(result)[:100]}")
+
+            # Strip Qwen chat template end token
+            return text.replace("<|im_end|>", "").strip()
+
         except Exception as e:
-            print(f"[DEBUG] Trained model attempt {attempt+1} failed: {e}", flush=True)
+            print(f"[DEBUG] Trained model attempt {attempt+1}: {e}", flush=True)
             if attempt == max_retries - 1:
                 raise
             time.sleep(2)
     return ""
 
 
-def call_base_model(client: OpenAI, user_prompt: str) -> str:
-    """Calls base Qwen2.5-72B via HF router as fallback."""
+def call_base_model(system: str, user: str) -> str:
+    """Calls Qwen2.5-72B via HF router as fallback."""
+    if not HF_TOKEN:
+        return ""
     try:
+        client = OpenAI(base_url=HF_ROUTER_URL, api_key=HF_TOKEN)
         completion = client.chat.completions.create(
             model=BASE_MODEL,
             messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user",   "content": user_prompt},
+                {"role": "system", "content": system},
+                {"role": "user",   "content": user},
             ],
-            max_tokens=300,
-            temperature=0.2,
+            max_tokens=MAX_TOKENS,
+            temperature=AGENT_TEMPERATURE,
         )
         return (completion.choices[0].message.content or "").strip()
     except Exception as exc:
@@ -230,74 +215,200 @@ def call_base_model(client: OpenAI, user_prompt: str) -> str:
         return ""
 
 
-def call_llm(user_prompt: str) -> str:
+def call_llm(system: str, user: str) -> str:
     """
-    Routes to trained RL model first, falls back to base model.
-    For trained model, wraps prompt in Qwen2.5 chat template.
+    Smart dispatcher:
+    1. Try trained RL model (HF Inference API)
+    2. Fall back to base Qwen2.5-72B (HF router)
     """
     if USE_TRAINED and HF_TOKEN:
+        # Qwen2.5 chat template format
         formatted = (
-            f"<|im_start|>system\n{SYSTEM_PROMPT}<|im_end|>\n"
-            f"<|im_start|>user\n{user_prompt}<|im_end|>\n"
+            f"<|im_start|>system\n{system}<|im_end|>\n"
+            f"<|im_start|>user\n{user}<|im_end|>\n"
             f"<|im_start|>assistant\n"
         )
         try:
             result = call_trained_model(formatted)
             if result:
-                print(f"[INFO] Trained model used: {TRAINED_MODEL}", flush=True)
                 return result
         except Exception as e:
             print(f"[INFO] Trained model unavailable ({e}), using base model", flush=True)
 
     if HF_TOKEN:
-        client = get_router_client()
-        result = call_base_model(client, user_prompt)
+        result = call_base_model(system, user)
         if result:
-            print(f"[INFO] Base model used: {BASE_MODEL}", flush=True)
             return result
 
-    return "Flood data analysis unavailable — no LLM configured."
+    return ""
 
 
-# ──────────────────────────────────────────────
-# PROMPT BUILDER
-# ──────────────────────────────────────────────
-def build_agent_prompt(ep: EpisodeState) -> str:
-    region = REGIONS[ep.region_id]
+# ─────────────────────────────────────────────────────────
+# 4-AGENT PIPELINE
+# ─────────────────────────────────────────────────────────
+def _ctx_str(region: dict) -> str:
+    """Build compact context string from region data."""
     fa  = region["flood_areas"]
     rz  = region["risk_zones_km2"]
-    fa_str = ", ".join(f"{yr}={fa.get(yr, fa.get(str(yr), 0))} km²" for yr in [2022, 2023, 2024])
+    fa_str = ", ".join(
+        f"{yr}: {fa.get(yr, fa.get(str(yr), 0))} km²" for yr in [2022, 2023, 2024])
+    return (
+        f"River: {region['river']} | State: {region['state']}\n"
+        f"SAR flood areas: {fa_str}\n"
+        f"Peak year: {region['peak_year']} | Model accuracy: {region['accuracy_pct']}%\n"
+        f"Chronic area: {region['chronic_km2']} km² | Population: {region['chronic_pop']:,}\n"
+        f"Chronic districts: {', '.join(region['chronic_districts'])}\n"
+        f"High-risk zones: {', '.join(region['high_risk_zones'])}\n"
+        f"Risk zones km²: high={rz['high']}, moderate={rz['moderate']}, low={rz['low']}\n"
+        f"Peak rainfall: {region['peak_rainfall_mm']} mm"
+    )
 
-    history_txt = ""
+
+def agent_1_data_analyst(task_desc: str, ctx: str, history: str) -> str:
+    """Agent 1 — Extracts exact numbers: km², rainfall, population."""
+    system = (
+        "You are a GIS Data Analyst specialising in Sentinel-1 SAR flood data. "
+        "Your ONLY job: report EXACT numbers from the context. "
+        "Include flood extent km² for each year, CHIRPS rainfall mm, "
+        "population counts, accuracy percentages. "
+        "Never use vague language. Every figure must be cited."
+    )
+    user = (
+        f"Task: {task_desc}\n\n"
+        f"Data context:\n{ctx}\n\n"
+        f"Previous steps: {history or 'None'}\n\n"
+        "Report ONLY exact numeric data: km² flood extents, rainfall totals, "
+        "population numbers, accuracy metrics. One paragraph, prose only."
+    )
+    return call_llm(system, user)
+
+
+def agent_2_domain_expert(task_desc: str, ctx: str, history: str) -> str:
+    """Agent 2 — District names and GIS causal factors."""
+    system = (
+        "You are a Senior GIS and Hydrology Expert for South Asian river systems. "
+        "Name specific districts affected by flooding. "
+        "Explain causal factors: DEM elevation, HydroSHEDS flow accumulation, "
+        "CHIRPS rainfall anomalies, slope. "
+        "Identify high-risk geographic zones by name. "
+        "Always cite at least 3 districts and 2 causal factors."
+    )
+    user = (
+        f"Task: {task_desc}\n\n"
+        f"Context:\n{ctx}\n\n"
+        f"Previous steps: {history or 'None'}\n\n"
+        "Name specific districts, explain causal GIS factors, "
+        "identify flood-prone zones. One paragraph, prose only."
+    )
+    return call_llm(system, user)
+
+
+def agent_3_critic(task_desc: str, analyst: str, expert: str) -> str:
+    """Agent 3 — Finds gaps before the answer is submitted."""
+    system = (
+        "You are a strict scientific peer reviewer for flood intelligence reports. "
+        "Identify MISSING information in the two answers below. "
+        "Look for: missing km² figures, missing district names, "
+        "vague unsupported claims, missing causal factors. "
+        "Be specific. Under 80 words."
+    )
+    user = (
+        f"Task: {task_desc}\n\n"
+        f"DATA ANALYST:\n{analyst}\n\n"
+        f"DOMAIN EXPERT:\n{expert}\n\n"
+        "What is MISSING? List specific gaps only."
+    )
+    return call_llm(system, user)
+
+
+def agent_4_aggregator(task_desc: str, ctx: str,
+                        analyst: str, expert: str, critic: str) -> str:
+    """Agent 4 — Final answer combining all three inputs."""
+    system = (
+        "You are a Chief Flood Intelligence Officer writing the official final report. "
+        "Combine the Data Analyst's exact numbers and the Domain Expert's GIS knowledge. "
+        "Fix every gap the Critic identified. "
+        "Your answer MUST include: "
+        "(1) Exact km² figures for flood extents, "
+        "(2) At least 3 specific district names, "
+        "(3) Causal factors: CHIRPS rainfall, DEM elevation, HydroSHEDS flow accumulation, "
+        "(4) No vague claims — every statement backed by data. "
+        "Under 280 words. Prose only, no bullet points."
+    )
+    user = (
+        f"Task: {task_desc}\n\n"
+        f"Context:\n{ctx}\n\n"
+        f"DATA ANALYST:\n{analyst}\n\n"
+        f"DOMAIN EXPERT:\n{expert}\n\n"
+        f"CRITIC GAPS:\n{critic}\n\n"
+        "Write the final comprehensive answer. Fix ALL gaps. "
+        "Include exact km² figures, district names, causal factors."
+    )
+    return call_llm(system, user)
+
+
+def run_four_agent_pipeline(ep: EpisodeState) -> str:
+    """
+    Full 4-agent debate pipeline.
+
+    Agent 1 (numbers) ──┐
+                         ├──▶ Agent 3 (critic) ──▶ Agent 4 (final) ──▶ /step
+    Agent 2 (GIS)    ──┘
+
+    Each agent calls the same trained RL model with different system prompts.
+    """
+    region   = REGIONS[ep.region_id]
+    ctx      = _ctx_str(region)
+    task_desc = ep.task.description
+    history  = ""
     if ep.history:
-        lines = [f"Step {h['step']}: reward={h['reward']:.3f} | {h['action'][:80]}"
-                 for h in ep.history[-3:]]
-        history_txt = "\n".join(lines)
+        history = " | ".join(
+            f"step {h['step']}: reward={h['reward']:.3f}"
+            for h in ep.history[-3:]
+        )
 
-    return "\n".join([
-        f"Task: {ep.task.description}",
-        f"",
-        f"Region: {region['name']}, State: {region['state']}, River: {region['river']}",
-        f"SAR flood areas: {fa_str}",
-        f"Peak flood year: {region['peak_year']}",
-        f"Model accuracy: {region['accuracy_pct']}%",
-        f"Chronic inundation: {region['chronic_km2']} km² | Population: {region['chronic_pop']:,}",
-        f"Chronic districts: {', '.join(region['chronic_districts'])}",
-        f"High-risk zones: {', '.join(region['high_risk_zones'])}",
-        f"Risk zones km²: high={rz['high']}, moderate={rz['moderate']}, low={rz['low']}",
-        f"Peak rainfall: {region['peak_rainfall_mm']}mm",
-        f"",
-        f"Step {ep.step + 1} of {ep.task.max_steps}",
-        f"Previous steps:\n{history_txt}" if history_txt else "No previous steps.",
-        f"",
-        f"Provide a specific, data-backed analysis with exact km² figures, district names, "
-        f"and causal factors (CHIRPS rainfall, DEM elevation, HydroSHEDS flow accumulation).",
-    ])
+    print(f"[AGENT] Starting 4-agent pipeline | step={ep.step+1} | "
+          f"task={ep.task.task_id} | region={ep.region_id} | "
+          f"model={'trained' if USE_TRAINED else 'base'}", flush=True)
+
+    # Agent 1
+    analyst = agent_1_data_analyst(task_desc, ctx, history)
+    print(f"[AGENT 1] Data Analyst: {len(analyst)} chars", flush=True)
+
+    # Agent 2
+    expert = agent_2_domain_expert(task_desc, ctx, history)
+    print(f"[AGENT 2] Domain Expert: {len(expert)} chars", flush=True)
+
+    # Agent 3 — only if we have both inputs
+    if analyst and expert:
+        critic = agent_3_critic(task_desc, analyst, expert)
+        print(f"[AGENT 3] Critic: {len(critic)} chars", flush=True)
+    else:
+        critic = "No gaps identified — insufficient input from previous agents."
+
+    # Agent 4 — final aggregation
+    if analyst or expert:
+        final = agent_4_aggregator(task_desc, ctx, analyst, expert, critic)
+        print(f"[AGENT 4] Aggregator: {len(final)} chars", flush=True)
+    else:
+        final = ""
+
+    # Fallback if all agents failed
+    if not final:
+        fallbacks = {
+            "flood_year_comparison":     "Floods vary by year during monsoon season.",
+            "district_inundation_report": "Several districts experience recurring flooding.",
+            "flood_risk_forecast":        "Certain areas face higher flood risk.",
+        }
+        final = fallbacks.get(ep.task.task_id, "Flood analysis unavailable.")
+        print("[AGENT] All agents failed — using fallback", flush=True)
+
+    return final
 
 
-# ──────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────
 # APP
-# ──────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────
 app = FastAPI(title="Chronostasis OpenEnv", version="2.0.0")
 app.add_middleware(
     CORSMiddleware,
@@ -317,30 +428,34 @@ async def root():
     return {"name": "Chronostasis", "version": "2.0.0", "docs": "/docs"}
 
 
-# ──────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────
 # CORE OPENENV ENDPOINTS
-# ──────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────
 
 @app.post("/reset", response_model=FloodObservation)
 async def reset(request: ResetRequest = ResetRequest()):
     global _current_episode
     task_id   = request.task_id   or "flood_year_comparison"
     region_id = request.region_id or DEFAULT_REGION
+    season    = request.season    or "kharif"
 
     if task_id not in TASK_REGISTRY:
-        raise HTTPException(400, f"Unknown task '{task_id}'. Available: {list(TASK_REGISTRY.keys())}")
+        raise HTTPException(400, f"Unknown task '{task_id}'. "
+                            f"Available: {list(TASK_REGISTRY.keys())}")
     if region_id not in REGIONS:
-        raise HTTPException(400, f"Unknown region '{region_id}'. Available: {list(REGIONS.keys())}")
+        raise HTTPException(400, f"Unknown region '{region_id}'. "
+                            f"Available: {list(REGIONS.keys())}")
 
-    season = request.season or "kharif"
-    task   = TASK_REGISTRY[task_id](gee_available=GEE_AVAILABLE, region=region_id, season=season)
+    task = TASK_REGISTRY[task_id](
+        gee_available=GEE_AVAILABLE, region=region_id, season=season)
     _current_episode = EpisodeState(task, region_id)
     region = REGIONS[region_id]
 
     return FloodObservation(
         task_id=task_id, task_description=task.description,
         step=0, max_steps=task.max_steps, available_data=task.available_data,
-        context=task.get_context(), echoed_message=f"Task started: {task.description}",
+        context=task.get_context(),
+        echoed_message=f"Episode started: {task.description}",
         region_id=region_id, region_name=region["name"]
     )
 
@@ -363,16 +478,21 @@ async def step(action: FloodAction):
     ep.total_reward = round(ep.total_reward + reward, 4)
     ep.done = done
     ep.history.append({
-        "step": ep.step, "action": action.message[:200],
-        "reward": reward, "done": done
+        "step":   ep.step,
+        "action": action.message[:200],
+        "reward": reward,
+        "done":   done,
     })
 
     region = REGIONS[ep.region_id]
     obs = FloodObservation(
         task_id=ep.task.task_id, task_description=ep.task.description,
-        step=ep.step, max_steps=ep.task.max_steps, available_data=ep.task.available_data,
-        last_action_result=result.get("result", ""), last_action_error=error,
-        context=ep.task.get_context(), echoed_message=action.message,
+        step=ep.step, max_steps=ep.task.max_steps,
+        available_data=ep.task.available_data,
+        last_action_result=result.get("result", ""),
+        last_action_error=error,
+        context=ep.task.get_context(),
+        echoed_message=action.message,
         region_id=ep.region_id, region_name=region["name"]
     )
     return StepResult(
@@ -395,20 +515,27 @@ async def state():
     )
 
 
-# ──────────────────────────────────────────────
-# AGENT ENDPOINT — TRAINED RL MODEL
-# ──────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────
+# 4-AGENT ENDPOINT — FULL PIPELINE
+# ─────────────────────────────────────────────────────────
 
 @app.post("/agent/step")
 async def agent_step(request: AgentStepRequest = AgentStepRequest()):
     """
-    Runs the trained RL model (or base model fallback) on the current task.
-    Self-contained: resets episode internally to handle multi-replica deployments.
+    Runs the full 4-agent debate pipeline using the trained RL model.
+
+    Pipeline:
+      Agent 1 (Data Analyst)  — exact km², rainfall, population
+      Agent 2 (Domain Expert) — districts, GIS causal factors
+      Agent 3 (Critic)        — identifies gaps
+      Agent 4 (Aggregator)    — final answer → submitted to /step grader
+
+    Falls back to base Qwen2.5-72B if trained model unavailable.
     """
     global _current_episode
     try:
         if not HF_TOKEN:
-            raise HTTPException(503, "No HF_TOKEN configured in Space secrets.")
+            raise HTTPException(503, "No HF_TOKEN in Space secrets.")
 
         task_id   = request.task_id   or "flood_year_comparison"
         region_id = request.region_id or DEFAULT_REGION
@@ -419,7 +546,7 @@ async def agent_step(request: AgentStepRequest = AgentStepRequest()):
         if region_id not in REGIONS:
             raise HTTPException(400, f"Unknown region: {region_id}")
 
-        # Reset if needed (handles multi-replica state isolation)
+        # Reset if needed — handles multi-replica state isolation
         if (_current_episode is None
                 or _current_episode.done
                 or _current_episode.task.task_id != task_id
@@ -428,38 +555,40 @@ async def agent_step(request: AgentStepRequest = AgentStepRequest()):
                 gee_available=GEE_AVAILABLE, region=region_id, season=season)
             _current_episode = EpisodeState(task, region_id)
 
-        ep     = _current_episode
-        prompt = build_agent_prompt(ep)
+        ep = _current_episode
 
-        # Call trained model (or fallback)
-        message = call_llm(prompt)
+        # Run 4-agent pipeline
+        final_answer = run_four_agent_pipeline(ep)
 
-        if not message:
-            raise HTTPException(502, "LLM returned empty response")
+        if not final_answer:
+            raise HTTPException(502, "4-agent pipeline returned empty response")
 
-        # Grade the response
+        # Grade the aggregated answer
         ep.step += 1
-        result  = ep.task.step(message, ep.step)
+        result  = ep.task.step(final_answer, ep.step)
         reward  = float(result.get("reward", 0) or 0)
         done    = bool(result.get("done", False)) or ep.step >= ep.task.max_steps
         ep.total_reward = round(ep.total_reward + reward, 4)
         ep.done = done
         ep.history.append({
-            "step": ep.step, "action": message[:200],
-            "reward": reward, "done": done
+            "step":   ep.step,
+            "action": final_answer[:200],
+            "reward": reward,
+            "done":   done,
         })
 
         return {
-            "step":              ep.step,
-            "agent_message":     message,
-            "reward":            reward,
-            "done":              done,
-            "result":            result.get("result", ""),
-            "total_reward":      ep.total_reward,
-            "model":             MODEL_NAME,
-            "using_trained":     USE_TRAINED,
-            "task_id":           task_id,
-            "region_id":         region_id,
+            "step":            ep.step,
+            "agent_message":   final_answer,
+            "reward":          reward,
+            "done":            done,
+            "result":          result.get("result", ""),
+            "total_reward":    ep.total_reward,
+            "model":           MODEL_NAME,
+            "using_trained":   USE_TRAINED,
+            "pipeline":        "4-agent",
+            "task_id":         task_id,
+            "region_id":       region_id,
         }
 
     except HTTPException:
@@ -468,15 +597,15 @@ async def agent_step(request: AgentStepRequest = AgentStepRequest()):
         raise HTTPException(500, f"Agent error: {type(e).__name__}: {str(e)[:300]}")
 
 
-# ──────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────
 # COMPARE ENDPOINT — TRAINED vs BASELINE
-# ──────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────
 
 @app.post("/agent/compare")
 async def agent_compare(request: CompareRequest):
     """
-    Runs the trained RL model AND a vague baseline on the same task/region.
-    Returns side-by-side responses + reward scores.
+    Runs the 4-agent system AND a vague baseline on the same task/region.
+    Returns side-by-side responses + reward scores for demo purposes.
     """
     task_id   = request.task_id
     region_id = request.region_id
@@ -488,48 +617,37 @@ async def agent_compare(request: CompareRequest):
 
     task   = TASK_REGISTRY[task_id](gee_available=GEE_AVAILABLE, region=region_id)
     region = REGIONS[region_id]
-    fa     = region["flood_areas"]
-    rz     = region["risk_zones_km2"]
-    fa_str = ", ".join(f"{yr}={fa.get(yr, fa.get(str(yr), 0))} km²" for yr in [2022, 2023, 2024])
 
-    prompt = "\n".join([
-        f"Task: {task.description}",
-        f"Region: {region['name']}, River: {region['river']}",
-        f"Flood areas: {fa_str}",
-        f"Peak year: {region['peak_year']}",
-        f"Model accuracy: {region['accuracy_pct']}%",
-        f"Chronic area: {region['chronic_km2']} km²",
-        f"Chronic districts: {', '.join(region['chronic_districts'])}",
-        f"High-risk zones: {', '.join(region['high_risk_zones'])}",
-        f"Risk zones km²: high={rz['high']}, moderate={rz['moderate']}, low={rz['low']}",
-        f"Answer in prose with exact km² figures, district names, and causal factors.",
-    ])
-
-    # ── Trained model ──────────────────────────
+    # ── 4-agent response ───────────────────────
     trained_response = ""
     trained_score    = 0.01
     try:
-        trained_response = call_llm(prompt)
+        # Create a temporary episode for the comparison
+        tmp_ep = EpisodeState(task, region_id)
+        trained_response = run_four_agent_pipeline(tmp_ep)
         if trained_response:
-            trained_score = float(task.step(trained_response, step_num=1).get("reward", 0.01))
+            trained_score = float(
+                task.step(trained_response, step_num=1).get("reward", 0.01))
     except Exception as e:
-        trained_response = f"[Model error: {str(e)[:80]}]"
+        trained_response = f"[Pipeline error: {str(e)[:80]}]"
 
     # ── Vague baseline ─────────────────────────
     baseline_map = {
-        "flood_year_comparison":     "Floods in Indian river basins vary by year during monsoon season. Some years are more severe than others.",
+        "flood_year_comparison":      "Floods in Indian river basins vary by year during monsoon season. Some years are more severe than others.",
         "district_inundation_report": "Several districts experience recurring flooding. Populations in low-lying areas are affected annually.",
         "flood_risk_forecast":        "Certain areas face higher flood risk. Early warning systems may help reduce flood impact.",
     }
     baseline_response = baseline_map.get(task_id, "Flooding occurs in this region.")
     try:
-        baseline_score = float(task.step(baseline_response, step_num=1).get("reward", 0.01))
+        baseline_score = float(
+            task.step(baseline_response, step_num=1).get("reward", 0.01))
     except:
         baseline_score = 0.01
 
     return {
-        "task_id":     task_id,
-        "region_id":   region_id,
+        "task_id":    task_id,
+        "region_id":  region_id,
+        "pipeline":   "4-agent",
         "trained": {
             "model":    MODEL_NAME,
             "response": trained_response,
@@ -540,31 +658,38 @@ async def agent_compare(request: CompareRequest):
             "response": baseline_response,
             "reward":   round(baseline_score, 3),
         },
-        "improvement":       round(trained_score - baseline_score, 3),
+        "improvement":         round(trained_score - baseline_score, 3),
         "using_trained_model": USE_TRAINED,
     }
 
 
-# ──────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────
 # MODEL INFO
-# ──────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────
 
 @app.get("/model/info")
 async def model_info():
     return {
-        "active_model":         MODEL_NAME,
-        "trained_model":        TRAINED_MODEL,
-        "base_model":           BASE_MODEL,
-        "using_trained_model":  USE_TRAINED,
-        "hf_token_configured":  bool(HF_TOKEN),
-        "inference_api":        HF_INFERENCE_URL,
-        "hf_model_url":         f"https://huggingface.co/{TRAINED_MODEL}",
+        "active_model":        MODEL_NAME,
+        "trained_model":       TRAINED_MODEL,
+        "base_model":          BASE_MODEL,
+        "using_trained_model": USE_TRAINED,
+        "hf_token_configured": bool(HF_TOKEN),
+        "pipeline":            "4-agent",
+        "agents": [
+            "Agent 1: Data Analyst — exact km², rainfall, population",
+            "Agent 2: Domain Expert — districts, GIS causal factors",
+            "Agent 3: Critic — identifies gaps",
+            "Agent 4: Aggregator — final graded answer",
+        ],
+        "inference_api":  HF_INFERENCE_URL,
+        "hf_model_url":   f"https://huggingface.co/{TRAINED_MODEL}",
     }
 
 
-# ──────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────
 # META ENDPOINTS
-# ──────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────
 
 @app.get("/regions")
 async def list_regions():
@@ -586,17 +711,16 @@ async def list_regions():
 
 @app.get("/tasks")
 async def list_tasks():
-    tasks = []
-    for tid, tcls in TASK_REGISTRY.items():
-        t = tcls(gee_available=GEE_AVAILABLE, region=DEFAULT_REGION)
-        tasks.append({
+    return [
+        {
             "id":          tid,
-            "name":        t.name,
-            "description": t.description,
-            "difficulty":  t.difficulty,
-            "max_steps":   t.max_steps,
-        })
-    return tasks
+            "name":        tcls(gee_available=GEE_AVAILABLE, region=DEFAULT_REGION).name,
+            "description": tcls(gee_available=GEE_AVAILABLE, region=DEFAULT_REGION).description,
+            "difficulty":  tcls(gee_available=GEE_AVAILABLE, region=DEFAULT_REGION).difficulty,
+            "max_steps":   tcls(gee_available=GEE_AVAILABLE, region=DEFAULT_REGION).max_steps,
+        }
+        for tid, tcls in TASK_REGISTRY.items()
+    ]
 
 
 @app.get("/report")
@@ -646,7 +770,8 @@ async def render(request: ResetRequest = ResetRequest()):
         raise HTTPException(400, f"Unknown region: {region_id}")
     region  = REGIONS[region_id]
     history = _current_episode.history if _current_episode else []
-    task_id = _current_episode.task.task_id if _current_episode else "flood_year_comparison"
+    task_id = (_current_episode.task.task_id
+               if _current_episode else "flood_year_comparison")
     try:
         charts = render_flood_report(region, history, task_id)
         return {
@@ -662,15 +787,16 @@ async def render(request: ResetRequest = ResetRequest()):
 @app.get("/health")
 async def health():
     return {
-        "status":               "ok",
-        "gee_available":        GEE_AVAILABLE,
-        "llm_configured":       bool(HF_TOKEN),
-        "using_trained_model":  USE_TRAINED,
-        "agent_model":          MODEL_NAME,
-        "trained_model":        TRAINED_MODEL,
-        "regions":              list(REGIONS.keys()),
-        "tasks":                list(TASK_REGISTRY.keys()),
-        "version":              "2.0.0",
+        "status":              "ok",
+        "gee_available":       GEE_AVAILABLE,
+        "llm_configured":      bool(HF_TOKEN),
+        "using_trained_model": USE_TRAINED,
+        "agent_model":         MODEL_NAME,
+        "trained_model":       TRAINED_MODEL,
+        "pipeline":            "4-agent",
+        "regions":             list(REGIONS.keys()),
+        "tasks":               list(TASK_REGISTRY.keys()),
+        "version":             "2.0.0",
     }
 
 
@@ -725,10 +851,14 @@ async def india_risk_map(season: str = "kharif"):
 async def list_seasons():
     return {
         "seasons": [
-            {"id": "pre_monsoon",  "label": "Pre-Monsoon",  "months": "March–May",        "desc": "Dry season, localised storm risk"},
-            {"id": "kharif",       "label": "Kharif",        "months": "June–September",   "desc": "Peak monsoon, maximum flood risk"},
-            {"id": "post_monsoon", "label": "Post-Monsoon",  "months": "October–November", "desc": "Receding waters, secondary flood risk"},
-            {"id": "rabi",         "label": "Rabi",          "months": "December–February","desc": "Winter season, minimal flood risk"},
+            {"id": "pre_monsoon",  "label": "Pre-Monsoon",
+             "months": "March–May",        "desc": "Dry season, localised storm risk"},
+            {"id": "kharif",       "label": "Kharif",
+             "months": "June–September",   "desc": "Peak monsoon, maximum flood risk"},
+            {"id": "post_monsoon", "label": "Post-Monsoon",
+             "months": "October–November", "desc": "Receding waters, secondary flood risk"},
+            {"id": "rabi",         "label": "Rabi",
+             "months": "December–February","desc": "Winter season, minimal flood risk"},
         ]
     }
 
