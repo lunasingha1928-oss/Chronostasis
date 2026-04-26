@@ -25,9 +25,10 @@ from openai import OpenAI
 
 from tasks import TASK_REGISTRY, REGIONS, DEFAULT_REGION, BaseTask
 from gee_codegen import generate_gee_code, generate_multi_basin_comparison_code
-from gee_codegen import get_script, get_all_india_script, list_regions
+from gee_client import (init_gee as init_gee_client, gee_available,
+                         get_stats_or_mock, get_flood_tile_url,
+                         query_any_location)
 from renderer import render_flood_report
-
 
 
 # ─────────────────────────────────────────────────────────
@@ -68,6 +69,12 @@ def init_gee():
         return False
 
 GEE_AVAILABLE = init_gee()
+# Also init the gee_client module
+if GEE_AVAILABLE:
+    init_gee_client(
+        project=GEE_PROJECT,
+        sa_json=os.getenv("GEE_SERVICE_ACCOUNT_JSON")
+    )
 
 
 # ─────────────────────────────────────────────────────────
@@ -429,6 +436,14 @@ async def root():
     if _os.path.isfile(idx):
         return FileResponse(idx)
     return {"name": "Chronostasis", "version": "2.0.0", "docs": "/docs"}
+
+@app.get("/map", include_in_schema=False)
+async def flood_map():
+    """Serves the interactive Leaflet flood risk map."""
+    mp = _os.path.join(_static, "map.html")
+    if _os.path.isfile(mp):
+        return FileResponse(mp)
+    raise HTTPException(404, "map.html not found in static/")
 
 
 # ─────────────────────────────────────────────────────────
@@ -867,6 +882,97 @@ async def list_seasons():
 
 
 # ─────────────────────────────────────────────────────────
+# DYNAMIC GEE QUERY — ANY LOCATION IN INDIA
+# ─────────────────────────────────────────────────────────
+
+class LocationQuery(BaseModel):
+    lat:       float
+    lon:       float
+    radius_km: float = 80.0
+    year:      int   = 2022
+
+@app.post("/query/location")
+async def query_location(req: LocationQuery):
+    """
+    Query real SAR flood data for any lat/lon in India.
+    Returns flood extent, risk zones, rainfall, and tile URLs for Leaflet.
+    """
+    if req.lat < 6 or req.lat > 38 or req.lon < 66 or req.lon > 98:
+        raise HTTPException(400, "Coordinates outside India bounds")
+    if req.radius_km < 10 or req.radius_km > 500:
+        raise HTTPException(400, "radius_km must be 10–500")
+    if req.year not in [2022, 2023, 2024]:
+        raise HTTPException(400, "year must be 2022, 2023, or 2024")
+
+    result = get_stats_or_mock(req.lat, req.lon, req.radius_km)
+    result["year"] = req.year
+
+    # Add tile URLs for the requested year
+    if gee_available():
+        tiles = get_flood_tile_url(req.lat, req.lon, req.year, req.radius_km * 2)
+        result["tiles"] = tiles.get("tiles", {})
+
+    return result
+
+
+@app.get("/query/tiles")
+async def query_tiles(lat: float, lon: float, year: int = 2022,
+                      radius_km: float = 150):
+    """
+    Returns Leaflet-compatible tile URLs for flood risk visualization.
+    Use in frontend: L.tileLayer(url).addTo(map)
+    """
+    if not gee_available():
+        return {
+            "mock": True,
+            "message": "GEE not configured — tile URLs unavailable",
+            "tiles": {},
+        }
+    result = get_flood_tile_url(lat, lon, year, radius_km)
+    return result
+
+
+@app.post("/query/reset")
+async def query_reset(req: LocationQuery):
+    """
+    Resets episode using real GEE data for any lat/lon.
+    Dynamically builds region context from satellite data.
+    """
+    global _current_episode
+
+    # Get real data
+    stats = get_stats_or_mock(req.lat, req.lon, req.radius_km)
+
+    # Build dynamic region data
+    dynamic_region = {
+        "name":             f"Custom Region ({req.lat:.2f}°N, {req.lon:.2f}°E)",
+        "state":            "India",
+        "river":            "Dynamic Query",
+        "lat":              req.lat,
+        "lon":              req.lon,
+        "flood_areas":      stats.get("flood_areas_km2", {2022:0,2023:0,2024:0}),
+        "peak_year":        stats.get("peak_year", 2022),
+        "chronic_km2":      stats.get("chronic_km2", 0),
+        "chronic_pop":      0,
+        "chronic_districts": [],
+        "high_risk_zones":  ["Query Area"],
+        "accuracy_pct":     91.0,
+        "risk_zones_km2":   stats.get("risk_zones_km2", {"high":0,"moderate":0,"low":0}),
+        "peak_rainfall_mm": stats.get("peak_rainfall_mm", 0),
+        "seasonal_risk":    {"pre_monsoon":0.3,"kharif":0.9,"post_monsoon":0.5,"rabi":0.1},
+        "sar_threshold_db": -16,
+    }
+
+    return {
+        "status":       "ok",
+        "region":       dynamic_region,
+        "tiles":        stats.get("tiles", {}),
+        "mock":         stats.get("mock", True),
+        "gee_available": gee_available(),
+    }
+
+
+# ─────────────────────────────────────────────────────────
 # GEE CODE DOWNLOAD ENDPOINTS
 # ─────────────────────────────────────────────────────────
 
@@ -941,18 +1047,7 @@ async def gee_info():
         ],
         "example": "/gee/code?region_id=brahmaputra&year=2022",
     }
-@app.get("/gee/code")
-async def gee_code(region_id: str = "brahmaputra"):
-    script = get_script(region_id)
-    filename = f"chronostasis_gee_{region_id}.js"
-    return Response(content=script, media_type="application/javascript",
-                    headers={"Content-Disposition": f"attachment; filename={filename}"})
 
-@app.get("/gee/code/all")
-async def gee_code_all():
-    script = get_all_india_script()
-    return Response(content=script, media_type="application/javascript",
-                    headers={"Content-Disposition": "attachment; filename=chronostasis_gee_all_india.js"})
 
 if __name__ == "__main__":
     import uvicorn

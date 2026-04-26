@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Chronostasis — India Flood Risk Map</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#080808;color:#E8DCBC;font-family:'Rajdhani',sans-serif;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+.fd{font-family:'Montserrat',sans-serif;font-weight:600}
+.fm{font-family:'Share Tech Mono',monospace}
+header{height:52px;background:rgba(8,8,8,.97);border-bottom:1px solid rgba(201,150,42,.2);display:flex;align-items:center;justify-content:space-between;padding:0 20px;flex-shrink:0;z-index:1000}
+.logo{display:flex;align-items:center;gap:12px}
+.logo-icon{width:32px;height:32px;border:1px solid rgba(201,150,42,.35);display:flex;align-items:center;justify-content:center;background:rgba(201,150,42,.08);font-size:15px}
+.logo-text .title{font-family:'Montserrat',sans-serif;font-weight:600;font-size:15px;letter-spacing:.04em;color:#E8B84B}
+.logo-text .sub{font-family:'Share Tech Mono',monospace;font-size:7px;color:#4A3A18;letter-spacing:.2em}
+.header-badges{display:flex;gap:8px;align-items:center}
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:1px;font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:.1em;font-weight:700}
+.badge-gold{background:rgba(201,150,42,.12);border:1px solid rgba(201,150,42,.3);color:#E8B84B}
+.badge-live{background:rgba(40,120,40,.12);border:1px solid rgba(40,180,40,.22);color:#70D070}
+.badge-warn{background:rgba(180,80,20,.12);border:1px solid rgba(200,100,20,.3);color:#E87A40}
+.pulse{animation:pulse 2s ease-in-out infinite;display:inline-block;width:6px;height:6px;border-radius:50%;background:#70D070;margin-right:4px}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.back-btn{font-family:'Share Tech Mono',monospace;font-size:9px;color:#6B5A30;letter-spacing:.1em;text-decoration:none;border:1px solid rgba(201,150,42,.15);padding:4px 10px;transition:all .15s}
+.back-btn:hover{color:#E8B84B;border-color:rgba(201,150,42,.4)}
+.main{flex:1;display:flex;overflow:hidden;position:relative}
+#map{flex:1;background:#0a0a0a}
+/* Override leaflet tiles bg */
+.leaflet-container{background:#0a0a0a!important}
+.sidebar{width:320px;background:#0d0d0d;border-left:1px solid rgba(201,150,42,.15);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0}
+.sidebar-section{padding:14px;border-bottom:1px solid rgba(201,150,42,.1)}
+.section-label{font-family:'Share Tech Mono',monospace;font-size:8px;color:#4A3A18;letter-spacing:.15em;margin-bottom:8px}
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.stat-card{background:rgba(201,150,42,.04);border:1px solid rgba(201,150,42,.1);padding:8px 10px}
+.stat-label{font-family:'Share Tech Mono',monospace;font-size:7px;color:#3A2D10;letter-spacing:.12em;margin-bottom:2px}
+.stat-value{font-family:'Share Tech Mono',monospace;font-size:13px;font-weight:700}
+.risk-bar{height:3px;background:#111;margin-top:6px}
+.risk-fill{height:100%;transition:width .6s}
+.layer-toggle{display:flex;align-items:center;gap:8px;padding:5px 0;cursor:pointer}
+.layer-dot{width:10px;height:10px;border-radius:0;flex-shrink:0}
+.layer-label{font-family:'Share Tech Mono',monospace;font-size:9px;color:#8B7840}
+.layer-toggle input{margin-left:auto;accent-color:#C9962A}
+.btn{width:100%;padding:8px;font-family:'Share Tech Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;transition:all .2s;border-radius:0;margin-bottom:4px}
+.btn-gold{background:rgba(201,150,42,.1);border:1px solid rgba(201,150,42,.4);color:#E8B84B}
+.btn-gold:hover:not(:disabled){background:rgba(201,150,42,.2);box-shadow:0 0 12px rgba(201,150,42,.2)}
+.btn-gold:disabled{opacity:.35;cursor:not-allowed}
+.btn-green{background:rgba(40,180,40,.08);border:1px solid rgba(40,180,40,.3);color:#70D070}
+.btn-green:hover:not(:disabled){background:rgba(40,180,40,.15)}
+.term{background:#040404;border:1px solid rgba(201,150,42,.1);font-family:'Share Tech Mono',monospace;font-size:10px;line-height:1.8;padding:10px;overflow-y:auto;flex:1;min-height:100px}
+.year-btn{padding:4px 10px;font-family:'Share Tech Mono',monospace;font-size:9px;cursor:pointer;transition:all .15s;border-radius:0}
+select{background:#111;border:1px solid rgba(201,150,42,.25);color:#E8B84B;font-family:'Share Tech Mono',monospace;font-size:10px;padding:4px 8px;width:100%;margin-top:4px}
+.legend{position:absolute;bottom:30px;left:10px;z-index:500;background:rgba(8,8,8,.9);border:1px solid rgba(201,150,42,.2);padding:10px 14px;min-width:180px}
+.legend-title{font-family:'Share Tech Mono',monospace;font-size:9px;color:#6B5A30;letter-spacing:.12em;margin-bottom:8px}
+.legend-row{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.legend-swatch{width:12px;height:12px;flex-shrink:0}
+.legend-text{font-family:'Share Tech Mono',monospace;font-size:9px;color:#8B7840}
+.search-box{display:flex;gap:6px;margin-bottom:8px}
+.search-box input{flex:1;background:#111;border:1px solid rgba(201,150,42,.2);color:#E8B84B;font-family:'Share Tech Mono',monospace;font-size:10px;padding:6px 8px}
+.search-box button{background:rgba(201,150,42,.1);border:1px solid rgba(201,150,42,.35);color:#E8B84B;font-family:'Share Tech Mono',monospace;font-size:9px;padding:6px 10px;cursor:pointer}
+.loading-overlay{position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(8,8,8,.7);display:flex;align-items:center;justify-content:center;z-index:2000;display:none}
+.loading-text{font-family:'Share Tech Mono',monospace;font-size:14px;color:#E8B84B;letter-spacing:.2em;animation:pulse 1s ease-in-out infinite}
+.coord-display{font-family:'Share Tech Mono',monospace;font-size:9px;color:#4A3A18;padding:4px 0}
+.divg{height:1px;background:linear-gradient(90deg,transparent,rgba(201,150,42,.2),transparent);margin:8px 0}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">
+    <div class="logo-icon">🌊</div>
+    <div class="logo-text">
+      <div class="title">CHRONOSTASIS</div>
+      <div class="sub">INDIA FLOOD RISK MAP — CLICK ANY LOCATION</div>
+    </div>
+  </div>
+  <div class="header-badges">
+    <span class="badge badge-live" id="gee-badge">
+      <span class="pulse"></span>LOADING...
+    </span>
+    <span class="badge badge-gold" id="model-badge">4-AGENT</span>
+    <a href="/" class="back-btn">← BACK TO APP</a>
+  </div>
+</header>
+
+<div class="main">
+  <div id="map"></div>
+
+  <!-- Legend -->
+  <div class="legend">
+    <div class="legend-title">◈ FLOOD RISK LEGEND</div>
+    <div class="legend-row"><div class="legend-swatch" style="background:#ff0000"></div><div class="legend-text">High Risk</div></div>
+    <div class="legend-row"><div class="legend-swatch" style="background:#ff8800"></div><div class="legend-text">Moderate Risk</div></div>
+    <div class="legend-row"><div class="legend-swatch" style="background:#00aa00"></div><div class="legend-text">Low Risk</div></div>
+    <div class="legend-row"><div class="legend-swatch" style="background:#0044ff"></div><div class="legend-text">Flood Extent</div></div>
+    <div class="legend-row"><div class="legend-swatch" style="background:#ff4444"></div><div class="legend-text">Chronic (3yr)</div></div>
+    <div class="divg"></div>
+    <div class="legend-text" id="coord-legend">Click anywhere on map</div>
+  </div>
+
+  <!-- Loading overlay -->
+  <div class="loading-overlay" id="loading">
+    <div class="loading-text">◈ QUERYING SATELLITE DATA...</div>
+  </div>
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+
+    <!-- Query form -->
+    <div class="sidebar-section">
+      <div class="section-label">◈ QUERY ANY LOCATION</div>
+      <div class="search-box">
+        <input type="number" id="lat-input" placeholder="Lat (e.g. 26.2)" step="0.01" min="6" max="38"/>
+        <input type="number" id="lon-input" placeholder="Lon (e.g. 91.7)" step="0.01" min="66" max="98"/>
+        <button onclick="queryLatLon()">GO</button>
+      </div>
+      <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap">
+        <span class="fm" style="font-size:8px;color:#4A3A18;padding-top:3px">PRESET:</span>
+        <button class="year-btn" style="border:1px solid rgba(201,150,42,.2);background:transparent;color:#6B5A30" onclick="goTo(26.2,91.7,'Brahmaputra')">Brahmaputra</button>
+        <button class="year-btn" style="border:1px solid rgba(201,150,42,.2);background:transparent;color:#6B5A30" onclick="goTo(25.6,85.1,'Ganga')">Ganga</button>
+        <button class="year-btn" style="border:1px solid rgba(201,150,42,.2);background:transparent;color:#6B5A30" onclick="goTo(20.5,85.8,'Mahanadi')">Mahanadi</button>
+        <button class="year-btn" style="border:1px solid rgba(201,150,42,.2);background:transparent;color:#6B5A30" onclick="goTo(22.7,77.4,'Narmada')">Narmada</button>
+        <button class="year-btn" style="border:1px solid rgba(201,150,42,.2);background:transparent;color:#6B5A30" onclick="goTo(17.0,81.8,'Godavari')">Godavari</button>
+      </div>
+      <div>
+        <span class="fm" style="font-size:8px;color:#4A3A18">YEAR</span>
+        <select id="year-select">
+          <option value="2022">2022 (Default)</option>
+          <option value="2023">2023</option>
+          <option value="2024">2024</option>
+        </select>
+      </div>
+      <div style="margin-top:8px">
+        <span class="fm" style="font-size:8px;color:#4A3A18">RADIUS (KM)</span>
+        <input type="range" id="radius" min="30" max="200" value="80" style="width:100%;accent-color:#C9962A"/>
+        <span class="fm" id="radius-label" style="font-size:9px;color:#6B5A30">80 km</span>
+      </div>
+    </div>
+
+    <!-- Results -->
+    <div class="sidebar-section">
+      <div class="section-label">◈ SATELLITE RESULTS</div>
+      <div class="stat-grid" id="stats-grid">
+        <div class="stat-card"><div class="stat-label">PEAK YEAR</div><div class="stat-value" id="stat-peak" style="color:#C9962A">—</div></div>
+        <div class="stat-card"><div class="stat-label">PEAK FLOOD KM²</div><div class="stat-value" id="stat-flood" style="color:#E87070">—</div></div>
+        <div class="stat-card"><div class="stat-label">CHRONIC KM²</div><div class="stat-value" id="stat-chronic" style="color:#E8B84B">—</div></div>
+        <div class="stat-card"><div class="stat-label">HIGH RISK KM²</div><div class="stat-value" id="stat-high" style="color:#E87070">—</div></div>
+        <div class="stat-card"><div class="stat-label">2022 FLOOD</div><div class="stat-value" id="stat-2022" style="color:#D4C89A">—</div></div>
+        <div class="stat-card"><div class="stat-label">2023 FLOOD</div><div class="stat-value" id="stat-2023" style="color:#D4C89A">—</div></div>
+        <div class="stat-card"><div class="stat-label">2024 FLOOD</div><div class="stat-value" id="stat-2024" style="color:#D4C89A">—</div></div>
+        <div class="stat-card"><div class="stat-label">RAINFALL MM</div><div class="stat-value" id="stat-rain" style="color:#70A0D0">—</div></div>
+      </div>
+      <div id="data-source" class="fm" style="font-size:8px;color:#4A3A18;margin-top:6px">Awaiting query...</div>
+    </div>
+
+    <!-- Layer toggles -->
+    <div class="sidebar-section">
+      <div class="section-label">◈ MAP LAYERS</div>
+      <label class="layer-toggle"><div class="layer-dot" style="background:#ff4444"></div><div class="layer-label">Flood Risk Zones</div><input type="checkbox" id="layer-risk" checked onchange="toggleLayer('risk',this.checked)"/></label>
+      <label class="layer-toggle"><div class="layer-dot" style="background:#0044ff"></div><div class="layer-label">Flood Extent (selected year)</div><input type="checkbox" id="layer-flood" onchange="toggleLayer('flood',this.checked)"/></label>
+      <label class="layer-toggle"><div class="layer-dot" style="background:#ff0000"></div><div class="layer-label">Chronic Inundation (3yr)</div><input type="checkbox" id="layer-chronic" onchange="toggleLayer('chronic',this.checked)"/></label>
+    </div>
+
+    <!-- Actions -->
+    <div class="sidebar-section">
+      <div class="section-label">◈ ACTIONS</div>
+      <button class="btn btn-green" id="run-agent-btn" onclick="runAgent()" disabled>▶ RUN 4-AGENT ANALYSIS</button>
+      <button class="btn btn-gold" id="download-gee-btn" onclick="downloadGEE()" disabled>⬇ DOWNLOAD GEE SCRIPT</button>
+    </div>
+
+    <!-- Agent terminal -->
+    <div class="sidebar-section" style="flex:1;display:flex;flex-direction:column;overflow:hidden">
+      <div class="section-label">◈ AGENT OUTPUT</div>
+      <div class="term" id="term">
+        <span style="color:#3A2D10">> Click on India map to query any location...</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const B = '';
+let map, clickMarker, leafletLayers = {};
+let currentLat = 22, currentLon = 80;
+let currentStats = null;
+
+// ── Init Leaflet map ──────────────────────────────────────────
+map = L.map('map', {
+  center:    [22, 80],
+  zoom:      5,
+  zoomControl: true,
+}).addControl(L.control.zoom({position: 'bottomright'}));
+
+// Dark base tile
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  attribution: '© OpenStreetMap contributors © CARTO',
+  subdomains:  'abcd',
+  maxZoom:     19,
+  opacity:     0.8,
+}).addTo(map);
+
+// India border overlay
+const indiaBorder = L.geoJSON(null, {
+  style: { color: 'rgba(201,150,42,0.4)', weight: 1.5, fillOpacity: 0 }
+});
+// We'll just show a rectangle approximating India for now
+L.rectangle([[6, 66],[38, 98]], {
+  color: 'rgba(201,150,42,0.2)', weight: 1,
+  fill: false, dashArray: '4 4'
+}).addTo(map);
+
+// ── Map click handler ─────────────────────────────────────────
+map.on('click', function(e) {
+  const lat = parseFloat(e.latlng.lat.toFixed(4));
+  const lon = parseFloat(e.latlng.lng.toFixed(4));
+  if (lat < 6 || lat > 38 || lon < 66 || lon > 98) {
+    logTerm('✗ Click within India (lat 6-38, lon 66-98)', '#E87070');
+    return;
+  }
+  document.getElementById('lat-input').value = lat;
+  document.getElementById('lon-input').value = lon;
+  queryLocation(lat, lon);
+});
+
+// ── Radius slider ─────────────────────────────────────────────
+document.getElementById('radius').addEventListener('input', function() {
+  document.getElementById('radius-label').textContent = this.value + ' km';
+});
+
+// ── Log to terminal ───────────────────────────────────────────
+function logTerm(msg, color = '#D4C89A') {
+  const term = document.getElementById('term');
+  const div  = document.createElement('div');
+  div.style.color = color;
+  div.textContent = msg;
+  term.appendChild(div);
+  term.scrollTop = term.scrollHeight;
+}
+
+function clearTerm() {
+  document.getElementById('term').innerHTML = '';
+}
+
+// ── Place marker ──────────────────────────────────────────────
+function placeMarker(lat, lon, label) {
+  if (clickMarker) map.removeLayer(clickMarker);
+  clickMarker = L.circleMarker([lat, lon], {
+    radius: 8, color: '#E8B84B', fillColor: '#C9962A',
+    fillOpacity: 0.8, weight: 2
+  }).bindPopup(
+    `<b style="color:#E8B84B">${label}</b><br>` +
+    `<span style="font-size:10px">${lat}°N ${lon}°E</span>`
+  ).addTo(map).openPopup();
+}
+
+// ── Add GEE tile layer ────────────────────────────────────────
+function addTileLayer(name, tileUrl) {
+  if (leafletLayers[name]) {
+    map.removeLayer(leafletLayers[name]);
+  }
+  if (tileUrl) {
+    leafletLayers[name] = L.tileLayer(tileUrl, {
+      opacity:     0.65,
+      attribution: 'Chronostasis / GEE',
+    });
+    const checkbox = document.getElementById('layer-' + name);
+    if (checkbox && checkbox.checked) {
+      leafletLayers[name].addTo(map);
+    }
+  }
+}
+
+function toggleLayer(name, show) {
+  if (leafletLayers[name]) {
+    if (show) leafletLayers[name].addTo(map);
+    else map.removeLayer(leafletLayers[name]);
+  }
+}
+
+// ── Query location ────────────────────────────────────────────
+async function queryLocation(lat, lon) {
+  currentLat = lat;
+  currentLon = lon;
+  const year   = parseInt(document.getElementById('year-select').value);
+  const radius = parseInt(document.getElementById('radius').value);
+
+  clearTerm();
+  logTerm(`→ QUERY  lat=${lat}  lon=${lon}  year=${year}  radius=${radius}km`, '#C9962A');
+  document.getElementById('loading').style.display = 'flex';
+  document.getElementById('run-agent-btn').disabled = true;
+  document.getElementById('download-gee-btn').disabled = true;
+  document.getElementById('coord-legend').textContent = `${lat}°N ${lon}°E`;
+  placeMarker(lat, lon, `${lat}°N, ${lon}°E`);
+  map.setView([lat, lon], 7);
+
+  try {
+    const res = await fetch(`${B}/query/location`, {
+      method:  'POST',
+      headers: {'Content-Type': 'application/json'},
+      body:    JSON.stringify({lat, lon, radius_km: radius, year})
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      logTerm(`✗ ${data.detail || 'Query failed'}`, '#E87070');
+      return;
+    }
+
+    currentStats = data;
+
+    // Update stats
+    const fa  = data.flood_areas_km2 || {};
+    const rz  = data.risk_zones_km2  || {};
+    const src = data.mock ? '⚠ Mock data (GEE not connected)' : '✓ Real Sentinel-1 SAR data';
+
+    document.getElementById('stat-peak').textContent   = data.peak_year || '—';
+    document.getElementById('stat-flood').textContent  = formatKm2(fa[data.peak_year]);
+    document.getElementById('stat-chronic').textContent = formatKm2(data.chronic_km2);
+    document.getElementById('stat-high').textContent   = formatKm2(rz.high);
+    document.getElementById('stat-2022').textContent   = formatKm2(fa[2022] || fa['2022']);
+    document.getElementById('stat-2023').textContent   = formatKm2(fa[2023] || fa['2023']);
+    document.getElementById('stat-2024').textContent   = formatKm2(fa[2024] || fa['2024']);
+    document.getElementById('stat-rain').textContent   = (data.peak_rainfall_mm || 0) + ' mm';
+    document.getElementById('data-source').textContent = src;
+    document.getElementById('data-source').style.color = data.mock ? '#E87A40' : '#70D070';
+
+    // Add tile layers if available
+    const tiles = data.tiles || {};
+    if (tiles.risk)    addTileLayer('risk',    tiles.risk);
+    if (tiles.flood)   addTileLayer('flood',   tiles.flood);
+    if (tiles.chronic) addTileLayer('chronic', tiles.chronic);
+
+    if (tiles.risk) {
+      logTerm('✓ GEE flood risk tiles loaded', '#70D070');
+    } else {
+      logTerm('⚠ GEE tiles unavailable — configure GEE_SERVICE_ACCOUNT_JSON', '#E87A40');
+    }
+
+    logTerm(`✓ Peak year: ${data.peak_year} | Flood: ${formatKm2(fa[data.peak_year])}`, '#70D070');
+    logTerm(`  Chronic: ${formatKm2(data.chronic_km2)} | High risk: ${formatKm2(rz.high)}`, '#8B7840');
+
+    document.getElementById('run-agent-btn').disabled = false;
+    document.getElementById('download-gee-btn').disabled = false;
+
+  } catch (e) {
+    logTerm(`✗ ${e.message}`, '#E87070');
+  } finally {
+    document.getElementById('loading').style.display = 'none';
+  }
+}
+
+function queryLatLon() {
+  const lat = parseFloat(document.getElementById('lat-input').value);
+  const lon = parseFloat(document.getElementById('lon-input').value);
+  if (isNaN(lat) || isNaN(lon)) { logTerm('✗ Enter valid lat/lon', '#E87070'); return; }
+  queryLocation(lat, lon);
+}
+
+function goTo(lat, lon, name) {
+  document.getElementById('lat-input').value = lat;
+  document.getElementById('lon-input').value = lon;
+  queryLocation(lat, lon);
+}
+
+function formatKm2(val) {
+  if (val === undefined || val === null) return '—';
+  return parseFloat(val).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + ' km²';
+}
+
+// ── Run agent ────────────────────────────────────────────────
+async function runAgent() {
+  logTerm('→ Running 4-agent analysis...', '#C9962A');
+  document.getElementById('run-agent-btn').disabled = true;
+  try {
+    // Find nearest region for agent
+    const regionId = findNearestRegion(currentLat, currentLon);
+    logTerm(`  Using region: ${regionId}`, '#6B5A30');
+
+    const res  = await fetch(`${B}/agent/step`, {
+      method:  'POST',
+      headers: {'Content-Type': 'application/json'},
+      body:    JSON.stringify({region_id: regionId, task_id: 'flood_risk_forecast'})
+    });
+    const data = await res.json();
+    if (!res.ok) { logTerm(`✗ ${data.detail}`, '#E87070'); return; }
+
+    logTerm(`✓ REWARD=${data.reward?.toFixed(3)} | MODEL=${data.model?.split('/').pop()}`, '#70D070');
+    logTerm('', '#4A3A18');
+    // Show agent output in chunks
+    const msg = data.agent_message || '';
+    const chunks = msg.match(/.{1,80}/g) || [];
+    chunks.forEach(c => logTerm(c, '#8B7840'));
+  } catch(e) {
+    logTerm(`✗ ${e.message}`, '#E87070');
+  } finally {
+    document.getElementById('run-agent-btn').disabled = false;
+  }
+}
+
+// ── Download GEE script ──────────────────────────────────────
+function downloadGEE() {
+  const year = document.getElementById('year-select').value;
+  const regionId = findNearestRegion(currentLat, currentLon);
+  window.open(`${B}/gee/code?region_id=${regionId}&year=${year}`, '_blank');
+  logTerm(`⬇ Downloading GEE script: ${regionId} ${year}`, '#C9962A');
+}
+
+// ── Find nearest region ──────────────────────────────────────
+const REGION_COORDS = {
+  brahmaputra:{lat:26.2,lon:91.7}, ganga:{lat:25.6,lon:85.1},
+  mahanadi:{lat:20.5,lon:85.8},    krishna:{lat:16.5,lon:80.6},
+  godavari:{lat:17.0,lon:81.8},    narmada:{lat:22.7,lon:77.4},
+  tapti:{lat:21.2,lon:74.8},       cauvery:{lat:11.5,lon:78.0},
+  damodar:{lat:23.5,lon:87.3},     sabarmati:{lat:23.2,lon:72.9},
+  mahi:{lat:22.5,lon:73.5},        baitarani:{lat:21.5,lon:86.0},
+  subarnarekha:{lat:22.5,lon:86.5},indus:{lat:31.5,lon:75.8},
+  luni:{lat:26.0,lon:72.5},
+};
+
+function findNearestRegion(lat, lon) {
+  let best = 'brahmaputra', bestDist = Infinity;
+  Object.entries(REGION_COORDS).forEach(([rid, c]) => {
+    const d = Math.hypot(lat - c.lat, lon - c.lon);
+    if (d < bestDist) { bestDist = d; best = rid; }
+  });
+  return best;
+}
+
+// ── Check GEE status ─────────────────────────────────────────
+fetch(`${B}/health`).then(r=>r.json()).then(d => {
+  const badge = document.getElementById('gee-badge');
+  if (d.gee_available) {
+    badge.textContent = '● GEE LIVE';
+    badge.className = 'badge badge-live';
+  } else {
+    badge.textContent = '○ GEE MOCK';
+    badge.className = 'badge badge-warn';
+  }
+  document.getElementById('model-badge').textContent =
+    d.using_trained_model ? 'RL MODEL' : 'BASE MODEL';
+}).catch(() => {});
+</script>
+</body>
+</html>
