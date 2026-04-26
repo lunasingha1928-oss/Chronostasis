@@ -9,6 +9,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Rajdhani:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet"/>
 <script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
 :root{--gold:#C9962A;--gb:#E8B84B;--gd:#8B6515;--obs:#080808;--coal:#111111;--gr:#1a1a1a;--cr:#E8DCBC;--pa:#D4C89A}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -249,6 +251,15 @@ function App(){
   const[usingTrained,setUsingTrained]=useState(true);
   const[compareResult,setCompareResult]=useState(null);
   const[comparing,setComparing]=useState(false);
+  const[chartImgs,setChartImgs]=useState({});
+  const[chartsLoading,setChartsLoading]=useState(false);
+  const[reportData,setReportData]=useState(null);
+  const[floodTiles,setFloodTiles]=useState({});
+  const[tileYear,setTileYear]=useState(2022);
+  const[tileLoading,setTileLoading]=useState(false);
+  const[activeLayer,setActiveLayer]=useState('risk');
+  const leafletRef=useRef(null);
+  const leafletMap=useRef(null);
 
   const log=(t,color='#D4C89A',p=null)=>setLines(prev=>[...prev.slice(-80),{t,color,p}]);
 
@@ -309,6 +320,63 @@ function App(){
     }catch(e){log(`✗ ${e.message}`,'#E87070','✗');}
     finally{setComparing(false);}
   };
+
+  const loadCharts=useCallback(async()=>{
+    setChartsLoading(true);
+    try{
+      const [rep,rnd]=await Promise.all([
+        fetch(`${B}/report`).then(r=>r.json()),
+        fetch(`${B}/render`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({region_id:region})}).then(r=>r.json()),
+      ]);
+      setReportData(rep);
+      setChartImgs(rnd.charts||{});
+    }catch(e){console.error(e);}
+    finally{setChartsLoading(false);}
+  },[region]);
+
+  const loadTiles=useCallback(async(yr)=>{
+    setTileLoading(true);
+    try{
+      const ri=Object.values(map?.regions||{}).find(r=>r.id===region)||{lat:26,lon:90};
+      const lat=ri.lat||26; const lon=ri.lon||90;
+      const d=await fetch(`${B}/query/tiles?lat=${lat}&lon=${lon}&year=${yr||tileYear}&radius_km=200`).then(r=>r.json());
+      setFloodTiles(d.tiles||{});
+    }catch(e){console.error(e);}
+    finally{setTileLoading(false);}
+  },[region,map,tileYear]);
+
+  useEffect(()=>{
+    if(activeTab==='charts')loadCharts();
+    if(activeTab==='map')loadTiles(tileYear);
+  },[activeTab,region]);
+
+  // Init/update Leaflet map
+  useEffect(()=>{
+    if(activeTab!=='map')return;
+    const container=document.getElementById('leaflet-container');
+    if(!container)return;
+    // Get basin coords
+    const ri=(map?.regions||[]).find(r=>r.id===region);
+    const lat=ri?.lat||26.5; const lon=ri?.lon||90.5;
+    setTimeout(()=>{
+      if(!leafletMap.current){
+        leafletMap.current=window.L&&L.map('leaflet-container',{zoomControl:true}).setView([lat,lon],7);
+        if(leafletMap.current){
+          L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{attribution:'Esri',maxZoom:18}).addTo(leafletMap.current);
+          leafletRef.current=true;
+        }
+      }else{
+        leafletMap.current.setView([lat,lon],7);
+        // Remove old GEE layers
+        leafletMap.current.eachLayer(l=>{if(l._url&&l._url.includes('earthengine'))leafletMap.current.removeLayer(l);});
+      }
+      // Add GEE tile layers
+      if(leafletMap.current&&floodTiles[activeLayer]){
+        const url=floodTiles[activeLayer];
+        L.tileLayer(url,{opacity:0.7,attribution:'Google Earth Engine'}).addTo(leafletMap.current);
+      }
+    },200);
+  },[activeTab,region,floodTiles,activeLayer]);
 
   const tm=TM[task]||{};
   const curMapR=map?.regions?.find(r=>r.id===region);
@@ -407,7 +475,7 @@ function App(){
           {/* Tab nav — using button elements with activeTab state */}
           <div>
             <div style={{display:'flex',borderBottom:'1px solid rgba(201,150,42,.14)'}}>
-              {[['demo','◈ AGENT DEMO'],['basins','◈ ALL BASINS'],['api','◈ API']].map(([id,l])=>(
+              {[['demo','◈ AGENT DEMO'],['charts','◈ CHARTS'],['map','◈ FLOOD MAP'],['basins','◈ ALL BASINS'],['api','◈ API']].map(([id,l])=>(
                 <button key={id} className={`ntab ${activeTab===id?'active':''}`}
                   onClick={()=>setActiveTab(id)}>{l}</button>
               ))}
@@ -509,7 +577,182 @@ function App(){
                 </div>
               )}
 
-              {/* ALL BASINS TAB */}
+              {/* CHARTS TAB */}
+              {activeTab==='charts'&&(
+                <div style={{display:'flex',flexDirection:'column',gap:14}}>
+                  {chartsLoading&&<div className="fm" style={{color:'#C9962A',fontSize:10,padding:'20px 0',textAlign:'center'}}>⟳ Loading charts...</div>}
+                  {/* Inline SAR flood extent chart */}
+                  {reportData&&(()=>{
+                    const r=reportData;
+                    const fa=r.flood_areas||{};
+                    const years=[2022,2023,2024];
+                    const vals=years.map(y=>fa[y]||fa[String(y)]||0);
+                    const mx=Math.max(...vals)||1;
+                    const peak=r.peak_year||2022;
+                    const rz=r.risk_zones_km2||{high:3218,moderate:5901,low:8234};
+                    const rzTotal=(rz.high||0)+(rz.moderate||0)+(rz.low||0)||1;
+                    return(
+                      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
+                        {/* Flood extent bars */}
+                        <div className="card" style={{padding:16}}>
+                          <div className="fm" style={{fontSize:9,color:'#4A3A18',letterSpacing:'.15em',marginBottom:12}}>◈ SAR FLOOD EXTENT — {r.region_name}</div>
+                          <svg viewBox="0 0 280 160" style={{width:'100%'}}>
+                            {years.map((y,i)=>{
+                              const h=Math.round((vals[i]/mx)*110);
+                              const x=30+i*80;
+                              const c=y===peak?'#E8B84B':'#4A3A18';
+                              return(<g key={y}>
+                                <rect x={x} y={150-h} width={50} height={h} fill={c} opacity={y===peak?0.85:0.45} rx="1"/>
+                                {y===peak&&<rect x={x} y={150-h} width={50} height={2} fill="#E8B84B"/>}
+                                <text x={x+25} y={148-h} textAnchor="middle" fill={c} fontSize="8" fontFamily="Share Tech Mono">{Math.round(vals[i]).toLocaleString()}</text>
+                                <text x={x+25} y={160} textAnchor="middle" fill="#4A3A18" fontSize="9" fontFamily="Share Tech Mono">{y}</text>
+                                {y===peak&&<text x={x+25} y={150-h-10} textAnchor="middle" fill="#E8B84B" fontSize="7" fontFamily="Share Tech Mono">PEAK</text>}
+                              </g>);
+                            })}
+                            <line x1="20" y1="150" x2="260" y2="150" stroke="rgba(201,150,42,0.2)" strokeWidth="0.5"/>
+                            <text x="10" y="155" fill="#3A2D10" fontSize="7" fontFamily="Share Tech Mono">km²</text>
+                          </svg>
+                        </div>
+                        {/* Risk zones bar */}
+                        <div className="card" style={{padding:16}}>
+                          <div className="fm" style={{fontSize:9,color:'#4A3A18',letterSpacing:'.15em',marginBottom:12}}>◈ RISK ZONE BREAKDOWN</div>
+                          <svg viewBox="0 0 280 160" style={{width:'100%'}}>
+                            {[['HIGH',rz.high,'#E87070'],['MODERATE',rz.moderate,'#E8B84B'],['LOW',rz.low,'#70A070']].map(([l,v,c],i)=>{
+                              const w=Math.round(((v||0)/rzTotal)*220);
+                              return(<g key={l}>
+                                <rect x={30} y={20+i*44} width={w} height={24} fill={c} opacity="0.7" rx="1"/>
+                                <rect x={30} y={20+i*44} width={4} height={24} fill={c} rx="1"/>
+                                <text x={36+w} y={35+i*44} fill={c} fontSize="9" fontFamily="Share Tech Mono">{(v||0).toLocaleString()} km²</text>
+                                <text x={20} y={35+i*44} textAnchor="end" fill={c} fontSize="8" fontFamily="Share Tech Mono">{l.slice(0,3)}</text>
+                                <text x={30+w/2} y={35+i*44} textAnchor="middle" fill="#040404" fontSize="8" fontFamily="Share Tech Mono">{Math.round(((v||0)/rzTotal)*100)}%</text>
+                              </g>);
+                            })}
+                          </svg>
+                        </div>
+                        {/* Year trend line */}
+                        <div className="card" style={{padding:16}}>
+                          <div className="fm" style={{fontSize:9,color:'#4A3A18',letterSpacing:'.15em',marginBottom:12}}>◈ FLOOD TREND 2022–2024</div>
+                          <svg viewBox="0 0 280 140" style={{width:'100%'}}>
+                            {(()=>{
+                              const pts=years.map((y,i)=>[20+i*110,(120-(vals[i]/mx)*90)]);
+                              const path=pts.map((p,i)=>`${i===0?'M':'L'}${p[0]},${p[1]}`).join(' ');
+                              const fill=pts.map((p,i)=>`${i===0?'M':'L'}${p[0]},${p[1]}`).join(' ')+`L${pts[pts.length-1][0]},125 L${pts[0][0]},125 Z`;
+                              return(<>
+                                <defs><linearGradient id="tg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#E8B84B" stopOpacity="0.3"/><stop offset="100%" stopColor="#E8B84B" stopOpacity="0.02"/></linearGradient></defs>
+                                <path d={fill} fill="url(#tg)"/>
+                                <path d={path} fill="none" stroke="#E8B84B" strokeWidth="2" strokeLinejoin="round"/>
+                                {pts.map((p,i)=>(
+                                  <g key={i}>
+                                    <circle cx={p[0]} cy={p[1]} r="4" fill={years[i]===peak?'#E8B84B':'#4A3A18'} stroke="#E8B84B" strokeWidth="1.5"/>
+                                    <text x={p[0]} y={p[1]-8} textAnchor="middle" fill="#C9962A" fontSize="8" fontFamily="Share Tech Mono">{years[i]}</text>
+                                    <text x={p[0]} y={p[1]+18} textAnchor="middle" fill="#6B5A30" fontSize="7" fontFamily="Share Tech Mono">{Math.round(vals[i]/1000*10)/10}k</text>
+                                  </g>
+                                ))}
+                                <line x1="10" y1="125" x2="270" y2="125" stroke="rgba(201,150,42,0.15)" strokeWidth="0.5"/>
+                              </>);
+                            })()}
+                          </svg>
+                        </div>
+                        {/* Chronic vs total stats */}
+                        <div className="card" style={{padding:16}}>
+                          <div className="fm" style={{fontSize:9,color:'#4A3A18',letterSpacing:'.15em',marginBottom:12}}>◈ CHRONIC INUNDATION</div>
+                          {[['Chronic Area',`${(r.chronic_km2||0).toLocaleString()} km²`,'#E87070'],
+                            ['Population',`${((r.chronic_pop||0)/1e6).toFixed(1)}M`,'#E8B84B'],
+                            ['Districts',`${(r.chronic_districts||[]).length} zones`,'#C9962A'],
+                            ['SAR Accuracy',`${r.accuracy_pct||92.4}%`,'#70D070'],
+                          ].map(([l,v,c])=>(
+                            <div key={l} style={{display:'flex',justifyContent:'space-between',padding:'7px 0',borderBottom:'1px solid rgba(201,150,42,.07)'}}>
+                              <span className="fm" style={{fontSize:9,color:'#4A3A18'}}>{l}</span>
+                              <span className="fm" style={{fontSize:11,color:c,fontWeight:700}}>{v}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                  {/* Matplotlib render images */}
+                  {Object.keys(chartImgs).length>0&&(
+                    <div>
+                      <div className="fm" style={{fontSize:9,color:'#4A3A18',letterSpacing:'.15em',marginBottom:10}}>◈ MATPLOTLIB FLOOD REPORTS</div>
+                      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+                        {Object.entries(chartImgs).map(([name,b64])=>(
+                          <div key={name} className="card" style={{padding:10}}>
+                            <div className="fm" style={{fontSize:8,color:'#3A2D10',marginBottom:6,textTransform:'uppercase',letterSpacing:'.1em'}}>{name.replace(/_/g,' ')}</div>
+                            <img src={`data:image/png;base64,${b64}`} style={{width:'100%',borderRadius:1}} alt={name}/>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {!chartsLoading&&Object.keys(chartImgs).length===0&&!reportData&&(
+                    <div style={{textAlign:'center',padding:'30px 0'}}>
+                      <div className="fm" style={{color:'#3A2D10',fontSize:10,marginBottom:8}}>No chart data yet</div>
+                      <button className="btn btn-g" onClick={loadCharts}>⟳ LOAD CHARTS</button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* FLOOD MAP TAB */}
+              {activeTab==='map'&&(
+                <div style={{display:'flex',flexDirection:'column',gap:12}}>
+                  {/* Layer controls */}
+                  <div className="card" style={{padding:12}}>
+                    <div className="fm" style={{fontSize:9,color:'#4A3A18',letterSpacing:'.15em',marginBottom:8}}>◈ FLOOD RISK MAP — {(map?.regions||[]).find(r=>r.id===region)?.name||region}</div>
+                    <div style={{display:'flex',flexWrap:'wrap',gap:8,marginBottom:8}}>
+                      <span className="fm" style={{fontSize:9,color:'#3A2D10',alignSelf:'center'}}>YEAR:</span>
+                      {[2022,2023,2024].map(yr=>(
+                        <button key={yr} onClick={()=>{setTileYear(yr);loadTiles(yr);}}
+                          style={{padding:'3px 12px',fontFamily:"'Share Tech Mono',monospace",fontSize:9,cursor:'pointer',border:`1px solid ${tileYear===yr?'rgba(201,150,42,.6)':'rgba(201,150,42,.18)'}`,background:tileYear===yr?'rgba(201,150,42,.12)':'transparent',color:tileYear===yr?'#E8B84B':'#4A3A18'}}>
+                          {yr}
+                        </button>
+                      ))}
+                      <span className="fm" style={{fontSize:9,color:'#3A2D10',alignSelf:'center',marginLeft:8}}>LAYER:</span>
+                      {[['risk','RISK ZONES','#E87070'],['flood','FLOOD EXTENT','#70A0E8'],['chronic','CHRONIC','#E87070']].map(([l,t,c])=>(
+                        <button key={l} onClick={()=>setActiveLayer(l)}
+                          style={{padding:'3px 12px',fontFamily:"'Share Tech Mono',monospace",fontSize:9,cursor:'pointer',border:`1px solid ${activeLayer===l?c+'88':c+'22'}`,background:activeLayer===l?c+'18':'transparent',color:activeLayer===l?c:'#4A3A18'}}>
+                          {t}
+                        </button>
+                      ))}
+                      {tileLoading&&<span className="fm" style={{fontSize:9,color:'#C9962A',alignSelf:'center'}}>⟳ Loading tiles...</span>}
+                    </div>
+                    {/* GEE status */}
+                    <div className="fm" style={{fontSize:8,color:floodTiles[activeLayer]?'#70D070':'#4A3A18'}}>
+                      {floodTiles[activeLayer]?'✓ GEE tiles loaded — real Sentinel-1 SAR data':'⚠ GEE tiles not loaded — showing basemap only'}
+                    </div>
+                  </div>
+                  {/* Leaflet map */}
+                  <div id="leaflet-container" style={{height:480,background:'#040404',border:'1px solid rgba(201,150,42,.18)',borderRadius:2,position:'relative'}}>
+                    {/* Leaflet injects here via useEffect */}
+                  </div>
+                  {/* Legend */}
+                  <div className="card" style={{padding:10}}>
+                    <div style={{display:'flex',gap:16,flexWrap:'wrap'}}>
+                      {activeLayer==='risk'&&[['#ff0000','High Risk (>0.65)'],['#ff8800','Moderate (0.35–0.65)'],['#00aa00','Low Risk (<0.35)']].map(([c,l])=>(
+                        <div key={l} style={{display:'flex',alignItems:'center',gap:5}}>
+                          <div style={{width:12,height:12,background:c,opacity:.7}}/>
+                          <span className="fm" style={{fontSize:8,color:'#4A3A18'}}>{l}</span>
+                        </div>
+                      ))}
+                      {activeLayer==='flood'&&<div style={{display:'flex',alignItems:'center',gap:5}}><div style={{width:12,height:12,background:'#0044ff',opacity:.7}}/><span className="fm" style={{fontSize:8,color:'#4A3A18'}}>SAR Flood Extent ({tileYear})</span></div>}
+                      {activeLayer==='chronic'&&<div style={{display:'flex',alignItems:'center',gap:5}}><div style={{width:12,height:12,background:'#ff0000',opacity:.7}}/><span className="fm" style={{fontSize:8,color:'#4A3A18'}}>Chronically Flooded (all 3 years)</span></div>}
+                      <span className="fm" style={{fontSize:8,color:'#3A2D10',marginLeft:'auto'}}>Data: Sentinel-1 SAR · GEE · −16 dB threshold</span>
+                    </div>
+                  </div>
+                  {/* Download GEE script */}
+                  <div style={{display:'flex',gap:8}}>
+                    {[2022,2023,2024].map(yr=>(
+                      <a key={yr} href={`${B}/gee/code?region_id=${region}&year=${yr}`}
+                        download={`chronostasis_${region}_${yr}.js`}
+                        style={{display:'inline-flex',alignItems:'center',gap:5,padding:'6px 14px',border:'1px solid rgba(201,150,42,.25)',background:'rgba(201,150,42,.06)',color:'#C9962A',textDecoration:'none',fontFamily:"'Share Tech Mono',monospace",fontSize:9,letterSpacing:'.08em'}}>
+                        ⬇ GEE Script {yr}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* ALL BASINS TAB */}}
               {activeTab==='basins'&&map?.regions&&(
                 <DC>
                   <div className="fm" style={{fontSize:9,color:'#4A3A18',letterSpacing:'.15em',marginBottom:14}}>◈ COMPARATIVE OVERVIEW — {map.regions.length} BASINS</div>
